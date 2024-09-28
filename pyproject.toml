@@ -1,0 +1,25 @@
+[project]
+name = "llm-transformers"
+version = "0.1"
+description = "Plugin for llm adding support for Hugging Face Transformers"
+readme = "README.md"
+authors = [{name = "Andrew Wason"}]
+license = {text = "Apache-2.0"}
+classifiers = [
+    "License :: OSI Approved :: Apache Software License"
+]
+dependencies = [
+    "llm"
+]
+
+[project.urls]
+Homepage = "https://github.com/rectalogic/llm-transformers"
+Changelog = "https://github.com/rectalogic/llm-transformers/releases"
+Issues = "https://github.com/rectalogic/llm-transformers/issues"
+CI = "https://github.com/rectalogic/llm-transformers/actions"
+
+[project.entry-points.llm]
+transformers = "llm_transformers"
+
+[project.optional-dependencies]
+test = ["pytest"]
