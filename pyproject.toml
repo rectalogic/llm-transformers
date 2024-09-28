@@ -1,7 +1,8 @@
 [project]
 name = "llm-transformers"
 version = "0.1"
-description = "Plugin for llm adding support for Hugging Face Transformers"
+requires-python = ">= 3.10"
+description = "Plugin for llm adding support for 🤗 Hugging Face Transformers"
 readme = "README.md"
 authors = [{name = "Andrew Wason"}]
 license = {text = "Apache-2.0"}
@@ -12,6 +13,9 @@ dependencies = [
     "llm",
     "transformers",
     "torch",
+    "soundfile",
+    "pillow",
+    "pytesseract",
 ]
 
 [project.urls]
