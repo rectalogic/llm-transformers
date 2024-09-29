@@ -16,6 +16,9 @@ dependencies = [
     "soundfile",
     "pillow",
     "pytesseract",
+    "timm",
+    "protobuf",
+    "pandas",
 ]
 
 [project.urls]
@@ -29,3 +32,33 @@ transformers = "llm_transformers"
 
 [project.optional-dependencies]
 test = ["pytest"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 108
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    # flake8-2020
+    "YTT",
+    # flake8-bandit
+    "S",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    # isort
+    "I",
+    # flake8-no-pep420
+    "INP",
+    # pyupgrade
+    "UP",
+]

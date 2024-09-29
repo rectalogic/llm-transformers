@@ -1,20 +1,43 @@
 import typing as ta
 import tempfile
 import json
+import csv
+import itertools
 import click
-from pydantic import field_validator, model_validator, Field
+from pydantic import field_validator, model_validator, Field, ConfigDict
 import soundfile as sf
 import llm
 import torch
-from transformers.pipelines import get_supported_tasks
+from transformers.pipelines import get_supported_tasks, Pipeline
 from transformers.utils import get_available_devices
 from transformers import pipeline
-import PIL
+from PIL import Image
 
-# XXX get list of models? https://github.com/huggingface/transformers/blob/2e24ee4dfa39cc0bc264b89edbccc373c8337086/src/transformers/models/auto/configuration_auto.py#L637
-# XXX allow local paths?
-#XXX query pipeline for model used to determine output format info? pipe.model
-#XXX query pipeline for model and see if it supports streaming, and pass model stream kwargs
+
+TASK_BLACKLIST = (
+    "feature-extraction",
+    "image-feature-extraction",
+    "mask-generation",  # Generates list of "masks" (numpy.ndarray(H, W) of dtype('bool')) and "scores" (Tensors)
+)
+
+
+def supported_tasks() -> ta.Iterator[str]:
+    for task in get_supported_tasks():
+        if task not in TASK_BLACKLIST:
+            yield task
+
+
+def save_image(image: Image.Image) -> str:
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False, delete_on_close=False) as f:
+        image.save(f, format="png")
+        return f.name
+
+
+def handle_required_kwarg(kwargs: dict, options: llm.Options, name: str, format: str, task: str) -> None:
+    if name not in kwargs:
+        kwargs[name] = getattr(options, name, None)
+    if kwargs[name] is None:
+        raise llm.ModelError(f"Must specify '-o {name} {format}' option for {task} pipeline task.")
 
 
 @llm.hookimpl
@@ -26,7 +49,7 @@ def register_commands(cli):
     @transformers_group.command(name="list-tasks")
     def list_tasks():
         """List supported transformers task names."""
-        for task in get_supported_tasks():
+        for task in supported_tasks():
             click.echo(task)
 
     @transformers_group.command(name="list-devices")
@@ -44,25 +67,24 @@ def register_models(register):
 class Transformers(llm.Model):
     model_id = "transformers"
 
+    pipe: Pipeline | None = None
+
     class Options(llm.Options):
         task: str | None = Field(
-            description="Transformer pipeline task name. `llm transformers list-tasks`.",
-            default=None
+            description="Transformer pipeline task name. `llm transformers list-tasks`.", default=None
         )
-        model: str | None = Field(
-            description="Transformer model name.",
-            default=None
-        )
+        model: str | None = Field(description="Transformer model name.", default=None)
         kwargs: dict | None = Field(
             description="Pipeline keyword args JSON dict. Specify additional kwargs for some pipelines.",
-            default=None
+            default=None,
         )
         device: str | None = Field(
-            description="Device name. `llm transformers list-devices`.",
-            default=None
+            description="Device name. `llm transformers list-devices`.", default=None
         )
+        # Pass through additional options
+        model_config = ConfigDict(extra="allow")
 
-        @field_validator("kwargs", mode='before')
+        @field_validator("kwargs", mode="before")
         @classmethod
         def validate_kwargs(cls, kwargs) -> dict | None:
             if kwargs is None or isinstance(kwargs, dict):
@@ -71,13 +93,13 @@ class Transformers(llm.Model):
             if not isinstance(d, dict):
                 raise ValueError("Invalid pipeline kwargs JSON option.")
             return d
-    
+
         @field_validator("task")
         @classmethod
         def validate_task(cls, task) -> str | None:
             if task is None:
                 return None
-            if task not in get_supported_tasks():
+            if task not in supported_tasks():
                 raise ValueError("Invalid pipeline task name option.")
             return task
 
@@ -90,64 +112,163 @@ class Transformers(llm.Model):
                 raise ValueError("Invalid device name option.")
             return device
 
-        @model_validator(mode='after')
+        @model_validator(mode="after")
         def check_task_model(self) -> ta.Self:
             if self.task is None and self.model is None:
                 raise ValueError("Must specify pipeline task and/or model options.")
             return self
 
-    def execute(self,
+    def execute(
+        self,
         prompt: llm.Prompt,
         stream: bool,
         response: llm.Response,
-        conversation: llm.Conversation | None =None,
+        conversation: llm.Conversation | None = None,
     ) -> ta.Iterator[str]:
-        pipe = pipeline(
-            task=prompt.options.task,
-            model=prompt.options.model,
-            device=torch.device(prompt.options.device) if prompt.options.device is not None else None,
-        )
+        if self.pipe is None:
+            self.pipe = pipeline(
+                task=prompt.options.task,
+                model=prompt.options.model,
+                device=torch.device(prompt.options.device) if prompt.options.device is not None else None,
+                framework="pt",
+            )
+        elif (prompt.options.task and self.pipe.task != prompt.options.task) or (
+            prompt.options.model and self.pipe.model.name_or_path != prompt.options.model
+        ):
+            raise llm.ModelError("'task' or 'model' options have changed")
+
+        if self.pipe.task in TASK_BLACKLIST:
+            raise llm.ModelError(f"{self.pipe.task} pipeline task is not supported.")
 
         args = []
         kwargs = prompt.options.kwargs if prompt.options.kwargs is not None else {}
-        if pipe.task == "document-question-answering":
-            if "image" not in kwargs:
-                raise ValueError("Must specify 'image' path/URL kwargs option for document-question-answering pipeline task.")
-            kwargs["question"] = prompt.prompt
-        else:
-            args.append(prompt.prompt)
+        match self.pipe.task:
+            case "document-question-answering":
+                kwargs["question"] = prompt.prompt
+                handle_required_kwarg(kwargs, prompt.options, "image", "<imagefile/URL>", self.pipe.task)
+            case "question-answering":
+                kwargs["question"] = prompt.prompt
+                handle_required_kwarg(kwargs, prompt.options, "context", "<text>", self.pipe.task)
+            case "table-question-answering":
+                kwargs["query"] = prompt.prompt
+                handle_required_kwarg(kwargs, prompt.options, "table", "<csvfile>", self.pipe.task)
+                # Convert CSV to a dict of lists, keys are the header names and values are a list of the column values
+                with open(kwargs["table"]) as f:
+                    reader = csv.reader(f)
+                    headers = next(reader)  # get the column headers
+                    table = {header: [] for header in headers}
+                    for row in reader:
+                        for i, header in enumerate(headers):
+                            table[header].append(row[i])
+                kwargs["table"] = table
+            case "text-generation":
+                if self.pipe.tokenizer.chat_template is not None:
+                    messages = []
+                    if conversation is not None:
+                        messages.extend(
+                            itertools.chain.chain.from_iterable(
+                                (
+                                    {"role": "user", "content": prev_response.prompt.prompt},
+                                    {"role": "assistant", "content": prev_response.text()},
+                                )
+                                for prev_response in conversation.responses
+                            )
+                        )
+                    messages.append({"role": "user", "content": prompt.prompt})
+                    args.append(messages)
+                else:
+                    args.append(prompt.prompt)
+            case _:
+                args.append(prompt.prompt)
 
-        result = pipe(*args, **kwargs)
+        result = self.pipe(*args, **kwargs)
 
         match result:
             case str():
                 yield result
-            case {"text": text}:  # automatic-speech-recognition
-                response.response_json = {pipe.task: result}
+            case Image.Image() as image:  # image-to-image
+                path = save_image(image)
+                response.response_json = {self.pipe.task: {"output": path}}
+                yield path
+            case {"text": str(text)}:  # automatic-speech-recognition
+                response.response_json = {self.pipe.task: result}
                 yield text
-            case {"audio": audio, "sampling_rate": sampling_rate}:  # text-to-audio
+            case {"audio": audio, "sampling_rate": int(sampling_rate)}:  # text-to-audio
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False, delete_on_close=False) as f:
                     # musicgen is shape (batch_size, num_channels, sequence_length)
                     # https://huggingface.co/docs/transformers/v4.45.1/en/model_doc/musicgen#unconditional-generation
-                    #XXX check shape of other audio pipelines
+                    # XXX check shape of other audio pipelines
                     sf.write(f, audio[0].T, sampling_rate)
-                    response.response_json = {pipe.task: {"output": f.name}}
+                    response.response_json = {self.pipe.task: {"output": f.name}}
                     yield f.name
-            case [{"score": float(), "label": str()}, *_]:  # audio-classification, sentiment-analysis
-                response.response_json = {pipe.task: result}
+            case [
+                {
+                    "score": float(),
+                    "label": str(),
+                    "box": {"xmin": int(), "ymin": int(), "xmax": int(), "ymax": int()},
+                },
+                *_,
+            ]:  # object-detection
                 yield json.dumps(result, indent=4)
-            case [{"sequence": str(), "token": int(), "token_str": str(), "score": float()}, *_]:  # fill-mask
-                response.response_json = {pipe.task: result}
+            case [{"score": float(), "label": str(), "mask": Image.Image()}, *_]:  # image-segmentation
+                responses = []
+                for item in result:
+                    path = save_image(item["mask"])
+                    responses.append({"score": item["score"], "label": item["label"], "output": path})
+                response.response_json = {self.pipe.task: responses}
+                yield "\n".join(
+                    f"{item['output']} ({item['label']}: {item['score']})" for item in responses
+                )
+            case [
+                {"score": float(), "label": str()},
+                *_,
+            ]:  # audio-classification, image-classification, sentiment-analysis, text-classification
+                response.response_json = {self.pipe.task: result}
+                yield json.dumps(result, indent=4)
+            case {
+                "score": float(),
+                "start": int(),
+                "end": int(),
+                "answer": str(answer),
+            }:  # question-answering
+                response.response_json = {self.pipe.task: result}
+                yield answer
+            case [
+                {"sequence": str(), "token": int(), "token_str": str(), "score": float()},
+                *_,
+            ]:  # fill-mask
+                response.response_json = {self.pipe.task: result}
                 yield "\n".join(f"{item['sequence']} (score={item['score']})" for item in result)
-            case {"predicted_depth": _, "depth": depth}:  # depth-estimation
-                with tempfile.NamedTemporaryFile(suffix=".png", delete=False, delete_on_close=False) as f:
-                    depth.save(f, format="png")
-                    response.response_json = {pipe.task: {"output": f.name}}
-                    yield f.name
-            case [{"score": float(), "answer": str(), "start": int(), "end": int()}]:  # document-question-answering
-                response.response_json = {pipe.task: result}
+            case {"predicted_depth": torch.Tensor(), "depth": Image.Image(depth)}:  # depth-estimation
+                path = save_image(depth)
+                response.response_json = {self.pipe.task: {"output": path}}
+                yield path
+            case [
+                {"score": float(), "answer": str(), "start": int(), "end": int()}
+            ]:  # document-question-answering
+                response.response_json = {self.pipe.task: result}
                 yield result[0]["answer"]
+            case [{"generated_text": str(text)}]:  # image-to-text, text2text-generation, text-generation
+                response.response_json = {self.pipe.task: result}
+                yield text
+            case [
+                {"generated_text": [{"role": ("user" | "assistant"), "content": str()}, *_]}
+            ]:  # text-generation
+                # XXX deal with conversation
+                response.response_json = {self.pipe.task: result}
+                yield result[0]["generated_text"][-1]["content"]
+            case [{"summary_text": str(text)}]:  # summarization
+                response.response_json = {self.pipe.task: result}
+                yield text
+            case {
+                "answer": str(answer),
+                "coordinates": [(int(), int()), *_],
+                "cells": [str(), *_],
+                "aggregator": str(),
+            }:  # table-question-answering
+                response.response_json = {self.pipe.task: result}
+                yield answer
             case _:
                 breakpoint()
-                print("DEFAULT CASE") #XXX
+                print("DEFAULT CASE")  # XXX
                 yield json.dumps(result, indent=4)
