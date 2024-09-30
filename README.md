@@ -18,129 +18,104 @@ llm install llm-transformers
 ## Transformer tasks
 
 ### [audio-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.AudioClassificationPipeline)
-### [automatic-speech-recognition](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.AutomaticSpeechRecognitionPipeline)
-### [depth-estimation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.DepthEstimationPipeline)
-### [document-question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.DocumentQuestionAnsweringPipeline)
-### [feature-extraction](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.FeatureExtractionPipeline)
-### [fill-mask](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.FillMaskPipeline)
-### [image-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageClassificationPipeline)
-### [image-feature-extraction](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageFeatureExtractionPipeline)
-### [image-segmentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageSegmentationPipeline)
-### [image-to-image](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageToImagePipeline)
-### [image-to-text](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageToTextPipeline)
-### [mask-generation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.MaskGenerationPipeline)
-### [object-detection](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ObjectDetectionPipeline)
-### [question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.QuestionAnsweringPipeline)
-### [summarization](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.SummarizationPipeline)
-### [table-question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TableQuestionAnsweringPipeline)
-### [text2text-generation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.Text2TextGenerationPipeline)
-### [text-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TextClassificationPipeline)
-### [text-generation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TextGenerationPipeline)
-### [text-to-audio](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TextToAudioPipeline)
-### [token-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TokenClassificationPipeline)
-### [translation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TranslationPipeline)
-### [translation_xx_to_yy](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TranslationPipeline)
-### [video-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.VideoClassificationPipeline)
-### [visual-question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.VisualQuestionAnsweringPipeline)
-### [zero-shot-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotClassificationPipeline)
-### [zero-shot-image-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotImageClassificationPipeline)
-### [zero-shot-audio-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotAudioClassificationPipeline)
-### [zero-shot-object-detection](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotObjectDetectionPipeline)
 
-Models that generate audio will save the audio to a file, the pathname is the output of the `llm` command.
-Some models can also be parameterized with keyword arguments specified as a string of JSON.
-```sh-session
-# text-to-audio pipeline
-$ llm -m transformers -o kwargs '{"generate_kwargs": {"max_new_tokens": 100}}' -o model facebook/musicgen-small "techno music"
-/var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmpoueh05y6.wav
-```
-
-Some models can take a URL or path to an audio or video as input, for example:
+The `audio-classification` task takes an audio URL or path, for example:
 ```sh-session
 $ llm -m transformers -o task audio-classification https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac
-[
-    {
-        "score": 0.9972336888313293,
-        "label": "_unknown_"
-    },
-    {
-        "score": 0.0019911774434149265,
-        "label": "left"
-    },
-    {
-        "score": 0.0003051063104066998,
-        "label": "yes"
-    },
-    {
-        "score": 0.0002108386834152043,
-        "label": "down"
-    },
-    {
-        "score": 0.00011406492558307946,
-        "label": "stop"
-    }
-]
+_unknown_ (0.9972336888313293)
+left (0.0019911774434149265)
+yes (0.0003051063104066998)
+down (0.0002108386834152043)
+stop (0.00011406492558307946)
 ```
+
+### [automatic-speech-recognition](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.AutomaticSpeechRecognitionPipeline)
+
 ```sh-session
 $ llm -m transformers -o task automatic-speech-recognition https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac
 HE HOPED THERE WOULD BE STEW FOR DINNER TURNIPS AND CARROTS AND BRUISED POTATOES AND FAT MUTTON PIECES TO BE LADLED OUT IN THICK PEPPERED FLOWER FAT AND SAUCE
 ```
-```sh-session
-$ llm -m transformers -o task image-classification https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
-[
-    {
-        "label": "macaw",
-        "score": 0.9905233979225159
-    },
-    {
-        "label": "African grey, African gray, Psittacus erithacus",
-        "score": 0.005603480152785778
-    },
-    {
-        "label": "toucan",
-        "score": 0.001056905253790319
-    },
-    {
-        "label": "sulphur-crested cockatoo, Kakatoe galerita, Cacatua galerita",
-        "score": 0.0006811501225456595
-    },
-    {
-        "label": "lorikeet",
-        "score": 0.0006714339251630008
-    }
-]
-```
-```sh-session
-$ llm -m transformers -o task image-segmentation https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
-/var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmp0z8zvd8i.png (bird: 0.999439)
-/var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmpik_7r5qn.png (bird: 0.998787)
-```
-```sh-session
-$ llm -m transformers -o task image-to-image http://images.cocodataset.org/val2017/000000039769.jpg
-/var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmpczogz6cb.png
-```
-```sh-session
-$ llm -m transformers -o task image-to-text https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
-two birds are standing next to each other
-```
 
-```sh-session
-$ llm -m transformers -o task sentiment-analysis "We are very happy to show you the 🤗 Transformers library"
-[
-    {
-        "label": "POSITIVE",
-        "score": 0.9997681975364685
-    }
-]
-```
-Some pipeline tasks accept an image url or path as input and generate an image file as output:
+### [depth-estimation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.DepthEstimationPipeline)
+
+The `depth-estimation` task accepts an image url or path as input and generates an image file as output:
 ```sh-session
 $ llm -m transformers -o task depth-estimation http://images.cocodataset.org/val2017/000000039769.jpg
 /var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmpjvp9uo7x.png
 ```
 XXX embed image here?
 
-``sh-session
+### [document-question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.DocumentQuestionAnsweringPipeline)
+
+The `document-question-answering` task requires an `image` option which can be specified as a model option
+or via the `kwargs` option:
+
+```sh-session
+$ llm -m transformers -o task document-question-answering -o kwargs '{"image": "https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png"}' "What is the invoice number?"
+us-001
+$ llm -m transformers -o task document-question-answering -o image https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png "What is the invoice number?"
+us-001
+```
+
+### [feature-extraction](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.FeatureExtractionPipeline)
+Not supported.
+
+### [fill-mask](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.FillMaskPipeline)
+
+`fill-mask` requires a placeholder in the prompt, thiis is typically `<mask>` but is different for different models:
+
+```sh-session
+$ llm -m transformers -o task fill-mask "My <mask> is about to explode"
+My brain is about to explode (score=0.09140042215585709)
+My heart is about to explode (score=0.07742168009281158)
+My head is about to explode (score=0.05137857422232628)
+My fridge is about to explode (score=0.029346412047743797)
+My house is about to explode (score=0.02866862528026104)
+```
+
+### [image-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageClassificationPipeline)
+
+```sh-session
+$ llm -m transformers -o task image-classification https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
+macaw (0.9905233979225159)
+African grey, African gray, Psittacus erithacus (0.005603480152785778)
+toucan (0.001056905253790319)
+sulphur-crested cockatoo, Kakatoe galerita, Cacatua galerita (0.0006811501225456595)
+lorikeet (0.0006714339251630008)
+```
+
+### [image-feature-extraction](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageFeatureExtractionPipeline)
+Not supported.
+
+### [image-segmentation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageSegmentationPipeline)
+
+```sh-session
+$ llm -m transformers -o task image-segmentation https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
+/var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmp0z8zvd8i.png (bird: 0.999439)
+/var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmpik_7r5qn.png (bird: 0.998787)
+```
+
+### [image-to-image](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageToImagePipeline)
+
+```sh-session
+$ llm -m transformers -o task image-to-image http://images.cocodataset.org/val2017/000000039769.jpg
+/var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmpczogz6cb.png
+```
+
+### [image-to-text](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageToTextPipeline)
+
+```sh-session
+$ llm -m transformers -o task image-to-text https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
+two birds are standing next to each other
+```
+
+### [mask-generation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.MaskGenerationPipeline)
+Not supported.
+
+### [object-detection](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ObjectDetectionPipeline)
+
+
+```sh-session
 $ llm -m transformers -o task object-detection https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
 [
     {
@@ -166,37 +141,28 @@ $ llm -m transformers -o task object-detection https://huggingface.co/datasets/N
 ]
 ```
 
-Some pipeline tasks require additional specific kwarg options, these can be specified as `kwargs` JSON or
-more conveniently by specifying an additional model option:
-```sh-session
-$ llm -m transformers -o task document-question-answering -o kwargs '{"image": "https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png"}' "What is the invoice number?"
-us-001
-$ llm -m transformers -o task document-question-answering -o image https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png "What is the invoice number?"
-us-001
-```
-
-```sh-session
-$ llm -m transformers -o task fill-mask "My <mask> is about to explode"
-My brain is about to explode (score=0.09140042215585709)
-My heart is about to explode (score=0.07742168009281158)
-My head is about to explode (score=0.05137857422232628)
-My fridge is about to explode (score=0.029346412047743797)
-My house is about to explode (score=0.02866862528026104)
-```
+### [question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.QuestionAnsweringPipeline)
 
 ```sh-session
 $ llm -m transformers -o task question-answering -o context "My name is Wolfgang and I live in Berlin" "Where do I live?"
 Berlin
 ```
 
-``sh-session
+### [summarization](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.SummarizationPipeline)
+
+Specify additional pipeline keyword args with the `kwargs` model option:
+```sh-session
 $ llm -m transformers -o task summarization "An apple a day, keeps the doctor away"
  An apple a day, keeps the doctor away from your doctor away . An apple every day is an apple that keeps you from going to the doctor . The apple is the best way to keep your doctor from getting a doctor's orders, according to the author of The Daily Mail
 $ llm -m transformers -o task summarization -o kwargs '{"min_length": 2, "max_length": 7}' "An apple a day, keeps the doctor away"
  An apple a day
 ```
 
-``sh-session
+### [table-question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TableQuestionAnsweringPipeline)
+
+`table-question-answering` takes a required model or kwargs option of `table`, a path to a CSV file.
+
+```sh-session
 $ cat <<EOF > /tmp/t.csv
 > Repository,Stars,Contributors,Programming language
 Transformers,36542,651,Python
@@ -209,20 +175,23 @@ $ llm -m transformers -o task table-question-answering -o table /tmp/t.csv "How 
 SUM > 651, 77
 ```
 
+### [text2text-generation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.Text2TextGenerationPipeline)
+
 ```sh-session
 $ llm -m transformers -o task text2text-generation "question: What is 42 ? context: 42 is the answer to life, the universe and everything"
 the answer to life, the universe and everything
 ```
 
+### [text-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TextClassificationPipeline)
+
 ```sh-session
-$ llm -m transformers -o task text-classification "This movie is disgustingly good !"
-[
-    {
-        "label": "POSITIVE",
-        "score": 0.9998536109924316
-    }
-]
+$ llm -m transformers -o task text-classification "We are very happy to show you the 🤗 Transformers library"
+POSITIVE (0.9997681975364685)
 ```
+
+### [text-generation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TextGenerationPipeline)
+
+Some `text-generation` models can be chatted with.
 
 ```sh-session
 $ llm -m transformers -o task text-generation "I am going to elect"
@@ -240,18 +209,36 @@ Your question was: "What is the capital of France?"
 > quit
 ```
 
+### [text-to-audio](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TextToAudioPipeline)
+
+`text-to-audio` generates audio, the response is the path to the audio file.
+```sh-session
+$ llm -m transformers -o kwargs '{"generate_kwargs": {"max_new_tokens": 100}}' -o model facebook/musicgen-small "techno music"
+/var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmpoueh05y6.wav
+```
+
+### [token-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TokenClassificationPipeline)
+
 ```sh-session
 $ llm -m transformers -o task token-classification "My name is Sarah and I live in London"
 Sarah (I-PER: 0.9982994198799133)
 London (I-LOC: 0.998397171497345)
 ```
 
+### [translation_xx_to_yy](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TranslationPipeline)
+
+Substitute the from and to language codes into the task name, e.g. from `en` to `fr` would use task `translation_en_to_fr`:
+
 ```sh-session
 $ llm -m transformers -o task translation_en_to_fr "How old are you?"
  quel âge êtes-vous?
 ```
 
-``sh-session
+### [video-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.VideoClassificationPipeline)
+
+`video-classification` task expects a video path or URL as the prompt:
+
+```sh-session
 $ llm -m transformers -o task video-classification https://huggingface.co/datasets/Xuehai/MMWorld/resolve/main/Amazing%20street%20dance%20performance%20from%20Futunity%20UK%20-%20Move%20It%202013/Amazing%20street%20dance%20performance%20from%20Futunity%20UK%20-%20Move%20It%202013.mp4
 dancing ballet (0.006608937866985798)
 spinning poi (0.006111182738095522)
@@ -259,6 +246,10 @@ air drumming (0.005756791681051254)
 singing (0.005747966933995485)
 punching bag (0.00565463537350297)
 ```
+
+### [visual-question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.VisualQuestionAnsweringPipeline)
+
+`visual-question-answering` task requires an `image` model or kwargs option:
 
 ```sh-session
 $ llm -m transformers -o task visual-question-answering -o image https://huggingface.co/datasets/Narsil/image_dummy/raw/main/lena.png "What is she wearing?"
@@ -269,6 +260,10 @@ sun hat (0.002937435172498226)
 nothing (0.0020962499547749758)
 ```
 
+### [zero-shot-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotClassificationPipeline)
+
+`zero-shot-classification` requires a comma separated list of labels to be specified in the `candidate_labels` model option or kwargs:
+
 ```sh-session
 $ llm -m transformers -o task zero-shot-classification -o candidate_labels "urgent,not urgent,phone,tablet,computer" "I have a problem with my iphone that needs to be resolved asap!!"
 urgent (0.5036348700523376)
@@ -278,6 +273,10 @@ not urgent (0.0026557915844023228)
 tablet (0.0023087668232619762)
 ```
 
+### [zero-shot-image-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotImageClassificationPipeline)
+
+`zero-shot-image-classification` requires a comma separated list of labels to be specified in the `candidate_labels` model option or kwargs. The prompt is a path or URL to an image:
+
 ```sh-session
 $ llm -m transformers -o task zero-shot-image-classification -o candidate_labels "black and white,photorealist,painting" https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
 black and white (0.9736384749412537)
@@ -285,11 +284,20 @@ photorealist (0.02141517587006092)
 painting (0.004946451168507338)
 ```
 
+### [zero-shot-audio-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotAudioClassificationPipeline)
+
+`zero-shot-audio-classification` requires a comma separated list of labels to be specified in the `candidate_labels` model option or kwargs. The prompt is a path or URL to an audio:
+
 ```sh-session
 $ llm -m transformers -o task zero-shot-audio-classification -o candidate_labels "Sound of a bird,Sound of a dog" https://huggingface.co/datasets/s3prl/Nonspeech/resolve/main/animal_sound/n52.wav
 Sound of a bird (0.9998763799667358)
 Sound of a dog (0.00012355657236184925)
 ```
+
+### [zero-shot-object-detection](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotObjectDetectionPipeline)
+
+`zero-shot-object-detection` requires a comma separated list of labels to be specified in the `candidate_labels` model option or kwargs. The prompt is a path or URL to an image.
+The response is JSON and includes a bounding box for each label:
 
 ```sh-session
 $ llm -m transformers -o task zero-shot-object-detection -o candidate_labels "cat,couch" http://images.cocodataset.org/val2017/000000039769.jpg
@@ -326,6 +334,7 @@ $ llm -m transformers -o task zero-shot-object-detection -o candidate_labels "ca
     }
 ]
 ```
+
 
 ## Development
 
