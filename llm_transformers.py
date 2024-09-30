@@ -104,6 +104,10 @@ class Transformers(llm.Model):
             description="Pipeline keyword args JSON dict. Specify additional kwargs for some pipelines.",
             default=None,
         )
+        context: str | None = Field(
+            description="Additional context for transformer, often a file path or URL, required by some transformers.",
+            default=None,
+        )
         device: str | None = Field(
             description="Device name. `llm transformers list-devices`.", default=None
         )
@@ -111,8 +115,6 @@ class Transformers(llm.Model):
             description="Logging is disabled by default, enable this to see transformers warnings.",
             default=None,
         )
-        # Pass through additional options
-        model_config = ConfigDict(extra="allow")
 
         @field_validator("kwargs", mode="before")
         @classmethod
@@ -159,13 +161,15 @@ class Transformers(llm.Model):
         match task:
             case "document-question-answering" | "visual-question-answering":
                 kwargs["question"] = prompt.prompt
-                handle_required_kwarg(kwargs, prompt.options, "image", "<imagefile/URL>", task)
+                handle_required_kwarg(kwargs, prompt.options, "context", "<imagefile/URL>", task)
+                kwargs["image"] = kwargs.pop("context")
             case "question-answering":
                 kwargs["question"] = prompt.prompt
                 handle_required_kwarg(kwargs, prompt.options, "context", "<text>", task)
             case "table-question-answering":
                 kwargs["query"] = prompt.prompt
-                handle_required_kwarg(kwargs, prompt.options, "table", "<csvfile>", task)
+                handle_required_kwarg(kwargs, prompt.options, "context", "<csvfile>", task)
+                kwargs["table"] = kwargs.pop("context")
                 # Convert CSV to a dict of lists, keys are the header names and values are a list of the column values
                 with open(kwargs["table"]) as f:
                     reader = csv.reader(f)
@@ -180,7 +184,8 @@ class Transformers(llm.Model):
                 kwargs["videos"] = prompt.prompt
             case "zero-shot-classification":
                 kwargs["sequences"] = prompt.prompt
-                handle_required_kwarg(kwargs, prompt.options, "candidate_labels", "<label,label,...>", task)
+                handle_required_kwarg(kwargs, prompt.options, "context", "<label,label,...>", task)
+                kwargs["candidate_labels"] = kwargs.pop("context")
             case (
                 "zero-shot-image-classification"
                 | "zero-shot-audio-classification"
@@ -188,8 +193,8 @@ class Transformers(llm.Model):
             ):
                 # prompt is audio or image url/path
                 args.append(prompt.prompt)
-                handle_required_kwarg(kwargs, prompt.options, "candidate_labels", "<label,label,...>", task)
-                kwargs["candidate_labels"] = kwargs["candidate_labels"].split(",")
+                handle_required_kwarg(kwargs, prompt.options, "context", "<label,label,...>", task)
+                kwargs["candidate_labels"] = kwargs.pop("context").split(",")
             case _:
                 if self.pipe.tokenizer is not None and self.pipe.tokenizer.chat_template is not None:
                     messages = []

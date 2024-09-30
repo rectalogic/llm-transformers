@@ -49,13 +49,10 @@ XXX embed image here?
 
 ### [document-question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.DocumentQuestionAnsweringPipeline)
 
-The `document-question-answering` task requires an `image` option which can be specified as a model option
-or via the `kwargs` option:
+The `document-question-answering` task requires a `context` option which is a file or URL to an image:
 
 ```sh-session
-$ llm -m transformers -o task document-question-answering -o kwargs '{"image": "https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png"}' "What is the invoice number?"
-us-001
-$ llm -m transformers -o task document-question-answering -o image https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png "What is the invoice number?"
+$ llm -m transformers -o task document-question-answering -o context https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png "What is the invoice number?"
 us-001
 ```
 
@@ -116,7 +113,6 @@ Not supported.
 
 ### [object-detection](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ObjectDetectionPipeline)
 
-
 ```sh-session
 $ llm -m transformers -o task object-detection https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
 [
@@ -152,7 +148,7 @@ Berlin
 
 ### [summarization](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.SummarizationPipeline)
 
-Specify additional pipeline keyword args with the `kwargs` model option:
+Specify additional pipeline keyword args with the `kwargs` model option, a JSON text document:
 ```sh-session
 $ llm -m transformers -o task summarization "An apple a day, keeps the doctor away"
  An apple a day, keeps the doctor away from your doctor away . An apple every day is an apple that keeps you from going to the doctor . The apple is the best way to keep your doctor from getting a doctor's orders, according to the author of The Daily Mail
@@ -162,7 +158,7 @@ $ llm -m transformers -o task summarization -o kwargs '{"min_length": 2, "max_le
 
 ### [table-question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TableQuestionAnsweringPipeline)
 
-`table-question-answering` takes a required model or kwargs option of `table`, a path to a CSV file.
+`table-question-answering` takes a required `context` option - a path to a CSV file.
 
 ```sh-session
 $ cat <<EOF > /tmp/t.csv
@@ -171,9 +167,9 @@ Transformers,36542,651,Python
 Datasets,4512,77,Python
 Tokenizers,3934,34,"Rust, Python and NodeJS"
 > EOF
-$ llm -m transformers -o task table-question-answering -o table /tmp/t.csv "How many stars does the transformers repository have?"
+$ llm -m transformers -o task table-question-answering -o context /tmp/t.csv "How many stars does the transformers repository have?"
 AVERAGE > 36542
-$ llm -m transformers -o task table-question-answering -o table /tmp/t.csv "How many contributors do all Python language repositories have?"
+$ llm -m transformers -o task table-question-answering -o context /tmp/t.csv "How many contributors do all Python language repositories have?"
 SUM > 651, 77
 ```
 
@@ -251,10 +247,10 @@ punching bag (0.00565463537350297)
 
 ### [visual-question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.VisualQuestionAnsweringPipeline)
 
-`visual-question-answering` task requires an `image` model or kwargs option:
+`visual-question-answering` task requires an `context` option - a file or URL to an image:
 
 ```sh-session
-$ llm -m transformers -o task visual-question-answering -o image https://huggingface.co/datasets/Narsil/image_dummy/raw/main/lena.png "What is she wearing?"
+$ llm -m transformers -o task visual-question-answering -o context https://huggingface.co/datasets/Narsil/image_dummy/raw/main/lena.png "What is she wearing?"
 hat (0.9480269551277161)
 fedora (0.00863664224743843)
 clothes (0.003124270820990205)
@@ -264,10 +260,10 @@ nothing (0.0020962499547749758)
 
 ### [zero-shot-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotClassificationPipeline)
 
-`zero-shot-classification` requires a comma separated list of labels to be specified in the `candidate_labels` model option or kwargs:
+`zero-shot-classification` requires a comma separated list of labels to be specified in the `context` model option:
 
 ```sh-session
-$ llm -m transformers -o task zero-shot-classification -o candidate_labels "urgent,not urgent,phone,tablet,computer" "I have a problem with my iphone that needs to be resolved asap!!"
+$ llm -m transformers -o task zero-shot-classification -o context "urgent,not urgent,phone,tablet,computer" "I have a problem with my iphone that needs to be resolved asap!!"
 urgent (0.5036348700523376)
 phone (0.4788002371788025)
 computer (0.012600351125001907)
@@ -277,10 +273,10 @@ tablet (0.0023087668232619762)
 
 ### [zero-shot-image-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotImageClassificationPipeline)
 
-`zero-shot-image-classification` requires a comma separated list of labels to be specified in the `candidate_labels` model option or kwargs. The prompt is a path or URL to an image:
+`zero-shot-image-classification` requires a comma separated list of labels to be specified in the `context` model option. The prompt is a path or URL to an image:
 
 ```sh-session
-$ llm -m transformers -o task zero-shot-image-classification -o candidate_labels "black and white,photorealist,painting" https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
+$ llm -m transformers -o task zero-shot-image-classification -o context "black and white,photorealist,painting" https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
 black and white (0.9736384749412537)
 photorealist (0.02141517587006092)
 painting (0.004946451168507338)
@@ -288,21 +284,21 @@ painting (0.004946451168507338)
 
 ### [zero-shot-audio-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotAudioClassificationPipeline)
 
-`zero-shot-audio-classification` requires a comma separated list of labels to be specified in the `candidate_labels` model option or kwargs. The prompt is a path or URL to an audio:
+`zero-shot-audio-classification` requires a comma separated list of labels to be specified in the `context` model option. The prompt is a path or URL to an audio:
 
 ```sh-session
-$ llm -m transformers -o task zero-shot-audio-classification -o candidate_labels "Sound of a bird,Sound of a dog" https://huggingface.co/datasets/s3prl/Nonspeech/resolve/main/animal_sound/n52.wav
+$ llm -m transformers -o task zero-shot-audio-classification -o context "Sound of a bird,Sound of a dog" https://huggingface.co/datasets/s3prl/Nonspeech/resolve/main/animal_sound/n52.wav
 Sound of a bird (0.9998763799667358)
 Sound of a dog (0.00012355657236184925)
 ```
 
 ### [zero-shot-object-detection](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotObjectDetectionPipeline)
 
-`zero-shot-object-detection` requires a comma separated list of labels to be specified in the `candidate_labels` model option or kwargs. The prompt is a path or URL to an image.
+`zero-shot-object-detection` requires a comma separated list of labels to be specified in the `context` model option. The prompt is a path or URL to an image.
 The response is JSON and includes a bounding box for each label:
 
 ```sh-session
-$ llm -m transformers -o task zero-shot-object-detection -o candidate_labels "cat,couch" http://images.cocodataset.org/val2017/000000039769.jpg
+$ llm -m transformers -o task zero-shot-object-detection -o context "cat,couch" http://images.cocodataset.org/val2017/000000039769.jpg
 [
     {
         "score": 0.2868139445781708,
