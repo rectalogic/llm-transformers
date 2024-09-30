@@ -5,7 +5,7 @@
 [![Tests](https://github.com/rectalogic/llm-transformers/actions/workflows/test.yml/badge.svg)](https://github.com/rectalogic/llm-transformers/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/rectalogic/llm-transformers/blob/main/LICENSE)
 
-Plugin for llm adding support for Hugging Face Transformers
+Plugin for llm adding support for [🤗 Hugging Face Transformers](https://huggingface.co/docs/transformers/index)
 
 ## Installation
 
@@ -14,6 +14,8 @@ Install this plugin in the same environment as [LLM](https://llm.datasette.io/).
 llm install llm-transformers
 ```
 ## Usage
+
+XXX document `-o verbose True`
 
 ## Transformer tasks
 

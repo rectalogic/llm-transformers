@@ -1,9 +1,12 @@
 import csv
 import itertools
 import json
+import logging
 import re
 import tempfile
 import typing as ta
+import warnings
+from contextlib import contextmanager
 
 import click
 import llm
@@ -65,6 +68,28 @@ def register_models(register):
     register(Transformers())
 
 
+@contextmanager
+def silence(verbose: bool | None = None):
+    """Temporarily set transformers/torch log level to ERROR and disable warnings."""
+    if verbose:
+        yield
+    else:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            log_levels = [
+                (logger, logger.level)
+                for logger in (logging.getLogger("transformers"), logging.getLogger("torch"))
+            ]
+            try:
+                for logger, _ in log_levels:
+                    logger.setLevel(logging.ERROR)
+                yield
+            finally:
+                if log_levels is not None:
+                    for logger, level in log_levels:
+                        logger.setLevel(level)
+
+
 class Transformers(llm.Model):
     model_id = "transformers"
 
@@ -81,6 +106,10 @@ class Transformers(llm.Model):
         )
         device: str | None = Field(
             description="Device name. `llm transformers list-devices`.", default=None
+        )
+        verbose: bool | None = Field(
+            description="Logging is disabled by default, enable this to see transformers warnings.",
+            default=None,
         )
         # Pass through additional options
         model_config = ConfigDict(extra="allow")
@@ -307,7 +336,7 @@ class Transformers(llm.Model):
                 response.response_json = {task: result}
                 yield "\n".join(f"{label} ({score})" for label, score in zip(labels, scores, strict=True))
             case _, _:
-                breakpoint()
+                breakpoint()  # XXX log an error and try json
                 print("DEFAULT CASE")  # XXX
                 yield json.dumps(result, indent=4)
 
@@ -318,24 +347,27 @@ class Transformers(llm.Model):
         response: llm.Response,
         conversation: llm.Conversation | None = None,
     ) -> ta.Iterator[str]:
-        if self.pipe is None:
-            self.pipe = pipeline(
-                task=prompt.options.task,
-                model=prompt.options.model,
-                device=torch.device(prompt.options.device) if prompt.options.device is not None else None,
-                framework="pt",
-            )
-        elif (prompt.options.task and self.pipe.task != prompt.options.task) or (
-            prompt.options.model and self.pipe.model.name_or_path != prompt.options.model
-        ):
-            raise llm.ModelError("'task' or 'model' options have changed")
+        with silence(prompt.options.verbose):
+            if self.pipe is None:
+                self.pipe = pipeline(
+                    task=prompt.options.task,
+                    model=prompt.options.model,
+                    device=torch.device(prompt.options.device)
+                    if prompt.options.device is not None
+                    else None,
+                    framework="pt",
+                )
+            elif (prompt.options.task and self.pipe.task != prompt.options.task) or (
+                prompt.options.model and self.pipe.model.name_or_path != prompt.options.model
+            ):
+                raise llm.ModelError("'task' or 'model' options have changed")
 
-        normalized_task, _, _ = check_task(self.pipe.task)
-        if normalized_task in TASK_BLACKLIST:
-            raise llm.ModelError(f"{normalized_task} pipeline task is not supported.")
+            normalized_task, _, _ = check_task(self.pipe.task)
+            if normalized_task in TASK_BLACKLIST:
+                raise llm.ModelError(f"{normalized_task} pipeline task is not supported.")
 
-        args, kwargs = self.handle_inputs(normalized_task, prompt, conversation)
+            args, kwargs = self.handle_inputs(normalized_task, prompt, conversation)
 
-        result = self.pipe(*args, **kwargs)
+            result = self.pipe(*args, **kwargs)
 
-        yield from self.handle_result(normalized_task, result, response)
+            yield from self.handle_result(normalized_task, result, response)
