@@ -19,6 +19,7 @@ dependencies = [
     "timm",
     "protobuf",
     "pandas",
+    "av",
 ]
 
 [project.urls]
@@ -34,7 +35,7 @@ transformers = "llm_transformers"
 test = ["pytest"]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py310"
 line-length = 108
 
 [tool.ruff.format]
