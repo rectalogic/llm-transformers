@@ -1,19 +1,19 @@
-import typing as ta
-import tempfile
-import json
 import csv
-import re
 import itertools
-import click
-from pydantic import field_validator, model_validator, Field, ConfigDict
-import soundfile as sf
-import llm
-import torch
-from transformers.pipelines import get_supported_tasks, Pipeline, check_task
-from transformers.utils import get_available_devices
-from transformers import pipeline
-from PIL import Image
+import json
+import re
+import tempfile
+import typing as ta
 
+import click
+import llm
+import soundfile as sf
+import torch
+from PIL import Image
+from pydantic import ConfigDict, Field, field_validator, model_validator
+from transformers import pipeline
+from transformers.pipelines import Pipeline, check_task, get_supported_tasks
+from transformers.utils import get_available_devices
 
 TASK_BLACKLIST = (
     "feature-extraction",
@@ -121,6 +121,196 @@ class Transformers(llm.Model):
                 raise ValueError("Must specify pipeline task and/or model options.")
             return self
 
+    def handle_inputs(
+        self, task: str, prompt: llm.Prompt, conversation: llm.Conversation | None = None
+    ) -> tuple[list[str], dict]:
+        args = []
+        kwargs = prompt.options.kwargs or {}
+
+        match task:
+            case "document-question-answering" | "visual-question-answering":
+                kwargs["question"] = prompt.prompt
+                handle_required_kwarg(kwargs, prompt.options, "image", "<imagefile/URL>", task)
+            case "question-answering":
+                kwargs["question"] = prompt.prompt
+                handle_required_kwarg(kwargs, prompt.options, "context", "<text>", task)
+            case "table-question-answering":
+                kwargs["query"] = prompt.prompt
+                handle_required_kwarg(kwargs, prompt.options, "table", "<csvfile>", task)
+                # Convert CSV to a dict of lists, keys are the header names and values are a list of the column values
+                with open(kwargs["table"]) as f:
+                    reader = csv.reader(f)
+                    headers = next(reader)  # get the column headers
+                    table = {header: [] for header in headers}
+                    for row in reader:
+                        for i, header in enumerate(headers):
+                            table[header].append(row[i])
+                kwargs["table"] = table
+            case "video-classification":
+                # Prompt should be a video file/URL
+                kwargs["videos"] = prompt.prompt
+            case "zero-shot-classification":
+                kwargs["sequences"] = prompt.prompt
+                handle_required_kwarg(kwargs, prompt.options, "candidate_labels", "<label,label,...>", task)
+            case (
+                "zero-shot-image-classification"
+                | "zero-shot-audio-classification"
+                | "zero-shot-object-detection"
+            ):
+                # prompt is audio or image url/path
+                args.append(prompt.prompt)
+                handle_required_kwarg(kwargs, prompt.options, "candidate_labels", "<label,label,...>", task)
+                kwargs["candidate_labels"] = kwargs["candidate_labels"].split(",")
+            case _:
+                if self.pipe.tokenizer is not None and self.pipe.tokenizer.chat_template is not None:
+                    messages = []
+                    if conversation is not None:
+                        messages.extend(
+                            itertools.chain.from_iterable(
+                                (
+                                    {"role": "user", "content": prev_response.prompt.prompt},
+                                    {"role": "assistant", "content": prev_response.text()},
+                                )
+                                for prev_response in conversation.responses
+                            )
+                        )
+                    messages.append({"role": "user", "content": prompt.prompt})
+                    args.append(messages)
+                else:
+                    args.append(prompt.prompt)
+
+        return args, kwargs
+
+    def handle_result(
+        self, task: str, result: ta.Any, response: llm.Response
+    ) -> ta.Generator[str, None, None]:
+        match task, result:
+            case "image-to-image", Image.Image() as image:
+                path = save_image(image)
+                response.response_json = {task: {"output": path}}
+                yield path
+            case "automatic-speech-recognition", {"text": str(text)}:
+                response.response_json = {task: result}
+                yield text
+            case "text-to-audio", {"audio": audio, "sampling_rate": int(sampling_rate)}:
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False, delete_on_close=False) as f:
+                    # musicgen is shape (batch_size, num_channels, sequence_length)
+                    # https://huggingface.co/docs/transformers/v4.45.1/en/model_doc/musicgen#unconditional-generation
+                    # XXX check shape of other audio pipelines
+                    sf.write(f, audio[0].T, sampling_rate)
+                    response.response_json = {task: {"output": f.name}}
+                    yield f.name
+            case "object-detection", [
+                {
+                    "score": float(),
+                    "label": str(),
+                    "box": {"xmin": int(), "ymin": int(), "xmax": int(), "ymax": int()},
+                },
+                *_,
+            ]:
+                yield json.dumps(result, indent=4)
+            case "image-segmentation", [{"score": float(), "label": str(), "mask": Image.Image()}, *_]:
+                responses = []
+                for item in result:
+                    path = save_image(item["mask"])
+                    responses.append({"score": item["score"], "label": item["label"], "output": path})
+                response.response_json = {task: responses}
+                yield "\n".join(
+                    f"{item['output']} ({item['label']}: {item['score']})" for item in responses
+                )
+            case "audio-classification" | "image-classification" | "text-classification", [
+                {"score": float(), "label": str()},
+                *_,
+            ]:
+                response.response_json = {task: result}
+                yield "\n".join(f"{item['label']} ({item['score']})" for item in result)
+            case "question-answering", {
+                "score": float(),
+                "start": int(),
+                "end": int(),
+                "answer": str(answer),
+            }:
+                response.response_json = {task: result}
+                yield answer
+            case "fill-mask", [
+                {"sequence": str(), "token": int(), "token_str": str(), "score": float()},
+                *_,
+            ]:
+                response.response_json = {task: result}
+                yield "\n".join(f"{item['sequence']} (score={item['score']})" for item in result)
+            case "depth-estimation", {"predicted_depth": torch.Tensor(), "depth": Image.Image(depth)}:
+                path = save_image(depth)
+                response.response_json = {task: {"output": path}}
+                yield path
+            case "document-question-answering", [
+                {"score": float(), "answer": str(), "start": int(), "end": int()}
+            ]:
+                response.response_json = {task: result}
+                yield result[0]["answer"]
+            case "image-to-text" | "text2text-generation" | "text-generation", [
+                {"generated_text": str(text)}
+            ]:
+                response.response_json = {task: result}
+                yield text
+            case "text-generation", [
+                {"generated_text": [{"role": ("user" | "assistant"), "content": str()}, *_]}
+            ]:
+                response.response_json = {task: result}
+                yield result[0]["generated_text"][-1]["content"]
+            case "summarization", [{"summary_text": str(text)}]:
+                response.response_json = {task: result}
+                yield text
+            case "table-question-answering", {
+                "answer": str(answer),
+                "coordinates": [(int(), int()), *_],
+                "cells": [str(), *_],
+                "aggregator": str(),
+            }:
+                response.response_json = {task: result}
+                yield answer
+            case "token-classification", [
+                {"entity": str(), "score": _, "index": int(), "word": str(), "start": int(), "end": int()},
+                *_,
+            ]:
+                response.response_json = {task: result}
+                yield "\n".join(f"{item['word']} ({item['entity']}: {item['score']})" for item in result)
+            case task, [{"translation_text": str(text)}] if task.startswith("translation"):
+                # translation_xx_to_yy tasks encode the language codes e.g. translation_en_to_fr
+                response.response_json = {task: result}
+                yield text
+            case "zero-shot-object-detection", [
+                {
+                    "score": float(),
+                    "label": str(),
+                    "box": {"xmin": int(), "ymin": int(), "xmax": int(), "ymax": int()},
+                },
+                *_,
+            ]:
+                response.response_json = {task: result}
+                yield json.dumps(result, indent=4)
+            case (
+                "video-classification"
+                | "zero-shot-image-classification"
+                | "zero-shot-audio-classification",
+                [{"score": float(), "label": str()}, *_],
+            ):
+                response.response_json = {task: result}
+                yield "\n".join(f"{item['label']} ({item['score']})" for item in result)
+            case "visual-question-answering", [{"score": float(), "answer": str()}, *_]:
+                response.response_json = {task: result}
+                yield "\n".join(f"{item['answer']} ({item['score']})" for item in result)
+            case "zero-shot-classification", {
+                "sequence": str(),
+                "labels": [str(), *_] as labels,
+                "scores": [float(), *_] as scores,
+            }:
+                response.response_json = {task: result}
+                yield "\n".join(f"{label} ({score})" for label, score in zip(labels, scores, strict=True))
+            case _, _:
+                breakpoint()
+                print("DEFAULT CASE")  # XXX
+                yield json.dumps(result, indent=4)
+
     def execute(
         self,
         prompt: llm.Prompt,
@@ -144,160 +334,8 @@ class Transformers(llm.Model):
         if normalized_task in TASK_BLACKLIST:
             raise llm.ModelError(f"{normalized_task} pipeline task is not supported.")
 
-        args = []
-        kwargs = prompt.options.kwargs if prompt.options.kwargs is not None else {}
-        match normalized_task:
-            case "document-question-answering" | "visual-question-answering":
-                kwargs["question"] = prompt.prompt
-                handle_required_kwarg(kwargs, prompt.options, "image", "<imagefile/URL>", normalized_task)
-            case "question-answering":
-                kwargs["question"] = prompt.prompt
-                handle_required_kwarg(kwargs, prompt.options, "context", "<text>", normalized_task)
-            case "table-question-answering":
-                kwargs["query"] = prompt.prompt
-                handle_required_kwarg(kwargs, prompt.options, "table", "<csvfile>", normalized_task)
-                # Convert CSV to a dict of lists, keys are the header names and values are a list of the column values
-                with open(kwargs["table"]) as f:
-                    reader = csv.reader(f)
-                    headers = next(reader)  # get the column headers
-                    table = {header: [] for header in headers}
-                    for row in reader:
-                        for i, header in enumerate(headers):
-                            table[header].append(row[i])
-                kwargs["table"] = table
-            case "video-classification":
-                # Prompt should be a video file/URL
-                kwargs["videos"] = prompt.prompt
-            case "zero-shot-classification":
-                kwargs["sequences"] = prompt.prompt
-                handle_required_kwarg(kwargs, prompt.options, "candidate_labels", "<label,label,...>", normalized_task)
-            case "zero-shot-image-classification" | "zero-shot-audio-classification" | "zero-shot-object-detection":
-                # prompt is audio or image url/path
-                args.append(prompt.prompt)
-                handle_required_kwarg(kwargs, prompt.options, "candidate_labels", "<label,label,...>", normalized_task)
-                kwargs["candidate_labels"] = kwargs["candidate_labels"].split(",")
-            case _:
-                if self.pipe.tokenizer is not None and self.pipe.tokenizer.chat_template is not None:
-                    messages = []
-                    if conversation is not None:
-                        messages.extend(
-                            itertools.chain.from_iterable(
-                                (
-                                    {"role": "user", "content": prev_response.prompt.prompt},
-                                    {"role": "assistant", "content": prev_response.text()},
-                                )
-                                for prev_response in conversation.responses
-                            )
-                        )
-                    messages.append({"role": "user", "content": prompt.prompt})
-                    args.append(messages)
-                else:
-                    args.append(prompt.prompt)
+        args, kwargs = self.handle_inputs(normalized_task, prompt, conversation)
 
         result = self.pipe(*args, **kwargs)
 
-        match normalized_task, result:
-            case "image-to-image", Image.Image() as image:
-                path = save_image(image)
-                response.response_json = {normalized_task: {"output": path}}
-                yield path
-            case "automatic-speech-recognition", {"text": str(text)}:
-                response.response_json = {normalized_task: result}
-                yield text
-            case "text-to-audio", {"audio": audio, "sampling_rate": int(sampling_rate)}:
-                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False, delete_on_close=False) as f:
-                    # musicgen is shape (batch_size, num_channels, sequence_length)
-                    # https://huggingface.co/docs/transformers/v4.45.1/en/model_doc/musicgen#unconditional-generation
-                    # XXX check shape of other audio pipelines
-                    sf.write(f, audio[0].T, sampling_rate)
-                    response.response_json = {normalized_task: {"output": f.name}}
-                    yield f.name
-            case "object-detection", [
-                {
-                    "score": float(),
-                    "label": str(),
-                    "box": {"xmin": int(), "ymin": int(), "xmax": int(), "ymax": int()},
-                },
-                *_,
-            ]:
-                yield json.dumps(result, indent=4)
-            case "image-segmentation", [{"score": float(), "label": str(), "mask": Image.Image()}, *_]:
-                responses = []
-                for item in result:
-                    path = save_image(item["mask"])
-                    responses.append({"score": item["score"], "label": item["label"], "output": path})
-                response.response_json = {normalized_task: responses}
-                yield "\n".join(
-                    f"{item['output']} ({item['label']}: {item['score']})" for item in responses
-                )
-            case "audio-classification" | "image-classification" | "text-classification", [
-                {"score": float(), "label": str()},
-                *_,
-            ]:
-                response.response_json = {normalized_task: result}
-                yield "\n".join(f"{item['label']} ({item['score']})" for item in result)
-            case "question-answering", {
-                "score": float(),
-                "start": int(),
-                "end": int(),
-                "answer": str(answer),
-            }:
-                response.response_json = {normalized_task: result}
-                yield answer
-            case "fill-mask", [
-                {"sequence": str(), "token": int(), "token_str": str(), "score": float()},
-                *_,
-            ]:
-                response.response_json = {normalized_task: result}
-                yield "\n".join(f"{item['sequence']} (score={item['score']})" for item in result)
-            case "depth-estimation", {"predicted_depth": torch.Tensor(), "depth": Image.Image(depth)}:
-                path = save_image(depth)
-                response.response_json = {normalized_task: {"output": path}}
-                yield path
-            case "document-question-answering", [
-                {"score": float(), "answer": str(), "start": int(), "end": int()}
-            ]:
-                response.response_json = {normalized_task: result}
-                yield result[0]["answer"]
-            case "image-to-text" | "text2text-generation" | "text-generation", [{"generated_text": str(text)}]:
-                response.response_json = {normalized_task: result}
-                yield text
-            case "text-generation", [
-                {"generated_text": [{"role": ("user" | "assistant"), "content": str()}, *_]}
-            ]:
-                response.response_json = {normalized_task: result}
-                yield result[0]["generated_text"][-1]["content"]
-            case "summarization", [{"summary_text": str(text)}]:
-                response.response_json = {normalized_task: result}
-                yield text
-            case "table-question-answering", {
-                "answer": str(answer),
-                "coordinates": [(int(), int()), *_],
-                "cells": [str(), *_],
-                "aggregator": str(),
-            }:
-                response.response_json = {normalized_task: result}
-                yield answer
-            case "token-classification", [{'entity': str(), 'score': _, 'index': int(), 'word': str(), 'start': int(), 'end': int()}, *_]:
-                response.response_json = {normalized_task: result}
-                yield "\n".join(f"{item['word']} ({item['entity']}: {item['score']})" for item in result)
-            case task, [{'translation_text': str(text)}] if task.startswith("translation"):
-                # translation_xx_to_yy tasks encode the language codes e.g. translation_en_to_fr
-                response.response_json = {normalized_task: result}
-                yield text
-            case "zero-shot-object-detection", [{'score': float(), 'label': str(), "box": {'xmin': int(), 'ymin': int(), 'xmax': int(), 'ymax': int()}}, *_]:
-                response.response_json = {normalized_task: result}
-                yield json.dumps(result, indent=4)
-            case "video-classification" | "zero-shot-image-classification" | "zero-shot-audio-classification", [{'score': float(), 'label': str()}, *_]:
-                response.response_json = {normalized_task: result}
-                yield "\n".join(f"{item['label']} ({item['score']})" for item in result)
-            case "visual-question-answering", [{'score': float(), 'answer': str()}, *_]:
-                response.response_json = {normalized_task: result}
-                yield "\n".join(f"{item['answer']} ({item['score']})" for item in result)
-            case "zero-shot-classification", {'sequence': str(), 'labels': [str(), *_] as labels, 'scores': [float(), *_] as scores}:
-                response.response_json = {normalized_task: result}
-                yield "\n".join(f"{label} ({score})" for label, score in zip(labels, scores, strict=True))
-            case _, _:
-                breakpoint()
-                print("DEFAULT CASE")  # XXX
-                yield json.dumps(result, indent=4)
+        yield from self.handle_result(normalized_task, result, response)
