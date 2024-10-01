@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.12"]
+        python-version: ["3.12"]
     steps:
     - uses: actions/checkout@v4
     - name: Install uv
@@ -39,5 +39,4 @@ jobs:
       run: uv run pytest tests
 
 
-#XXX cache models
 #XXX lint
