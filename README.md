@@ -16,8 +16,20 @@ llm install llm-transformers
 ## Usage
 
 XXX document `-o verbose True`
+XXX HF_TOKEN/key usage
 
-## Transformer tasks
+Most models are freely accessible, some of them require accepting a license agreement and using a Hugging Face [API token](https://huggingface.co/settings/tokens) that has access to the model.
+You can use `llm keys set huggingface`, or set the `HF_TOKEN` env var, or use the `--key` option to `llm`.
+
+```sh-session
+$ llm -m transformers -o model meta-llama/Llama-3.2-1B "A dog has"
+Error: You are trying to access a gated repo.
+Make sure to have access to it at https://huggingface.co/meta-llama/Llama-3.2-1B.
+$ llm --key hf_******************** -m transformers -o model meta-llama/Llama-3.2-1B "A dog has"
+A dog has been named as the killer of a woman who was found dead in her home.
+```
+
+## Transformer Pipeline Tasks
 
 ### [audio-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.AudioClassificationPipeline)
 
@@ -92,6 +104,9 @@ Not supported.
 $ llm -m transformers -o task image-segmentation https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
 /var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmp0z8zvd8i.png (bird: 0.999439)
 /var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmpik_7r5qn.png (bird: 0.998787)
+$ llm -m transformers -o task image-segmentation -o output /tmp/segment.png https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
+/tmp/segment-00.png (bird: 0.999439)
+/tmp/segment-01.png (bird: 0.998787)
 ```
 
 ### [image-to-image](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageToImagePipeline)
@@ -213,6 +228,8 @@ Your question was: "What is the capital of France?"
 ```sh-session
 $ llm -m transformers -o kwargs '{"generate_kwargs": {"max_new_tokens": 100}}' -o model facebook/musicgen-small "techno music"
 /var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmpoueh05y6.wav
+$ llm -m transformers -o task text-to-audio "Hello world"
+/var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmpmpwhkd8p.wav
 ```
 
 ### [token-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TokenClassificationPipeline)

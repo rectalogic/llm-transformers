@@ -1,7 +1,10 @@
+# Copyright (C) 2024 Andrew Wason
+# SPDX-License-Identifier: Apache-2.0
 import csv
 import itertools
 import json
 import logging
+import pathlib
 import re
 import tempfile
 import typing as ta
@@ -10,10 +13,11 @@ from contextlib import contextmanager
 
 import click
 import llm
+import numpy
 import soundfile as sf
 import torch
 from PIL import Image
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from transformers import pipeline
 from transformers.pipelines import Pipeline, check_task, get_supported_tasks
 from transformers.utils import get_available_devices
@@ -31,10 +35,31 @@ def supported_tasks() -> ta.Iterator[str]:
             yield task
 
 
-def save_image(image: Image.Image) -> str:
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False, delete_on_close=False) as f:
-        image.save(f, format="png")
-        return f.name
+def save_image(image: Image.Image, output: pathlib.Path | None) -> str:
+    if output is None:
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False, delete_on_close=False) as f:
+            image.save(f, format="png")
+            return f.name
+    else:
+        image.save(str(output))
+        return str(output)
+
+
+def save_audio(audio: numpy.ndarray, sample_rate: int, output: pathlib.Path | None) -> str:
+    def save(f: ta.BinaryIO) -> None:
+        # musicgen is shape (batch_size, num_channels, sequence_length)
+        # https://huggingface.co/docs/transformers/v4.45.1/en/model_doc/musicgen#unconditional-generation
+        # XXX check shape of other audio pipelines
+        sf.write(f, audio[0].T, sample_rate)
+
+    if output is None:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False, delete_on_close=False) as f:
+            save(f)
+            return f.name
+    else:
+        with open(output, "wb") as f:
+            save(f)
+        return str(output)
 
 
 def handle_required_kwarg(kwargs: dict, options: llm.Options, name: str, format: str, task: str) -> None:
@@ -92,6 +117,8 @@ def silence(verbose: bool | None = None):
 
 class Transformers(llm.Model):
     model_id = "transformers"
+    needs_key = "huggingface"  # only some models need a key
+    key_env_var = "HF_TOKEN"
 
     pipe: Pipeline | None = None
 
@@ -108,8 +135,12 @@ class Transformers(llm.Model):
             description="Additional context for transformer, often a file path or URL, required by some transformers.",
             default=None,
         )
+        output: pathlib.Path | None = Field(
+            description="Output file path. Some models generate binary image/audio outputs which will be saved in this file, or a temporary file if not specified.",
+            default=None,
+        )
         device: str | None = Field(
-            description="Device name. `llm transformers list-devices`.", default=None
+            description="Torch device name. `llm transformers list-devices`.", default=None
         )
         verbose: bool | None = Field(
             description="Logging is disabled by default, enable this to see transformers warnings.",
@@ -216,24 +247,20 @@ class Transformers(llm.Model):
         return args, kwargs
 
     def handle_result(
-        self, task: str, result: ta.Any, response: llm.Response
+        self, task: str, result: ta.Any, prompt: llm.Prompt, response: llm.Response
     ) -> ta.Generator[str, None, None]:
         match task, result:
             case "image-to-image", Image.Image() as image:
-                path = save_image(image)
+                path = save_image(image, prompt.options.output)
                 response.response_json = {task: {"output": path}}
                 yield path
             case "automatic-speech-recognition", {"text": str(text)}:
                 response.response_json = {task: result}
                 yield text
-            case "text-to-audio", {"audio": audio, "sampling_rate": int(sampling_rate)}:
-                with tempfile.NamedTemporaryFile(suffix=".wav", delete=False, delete_on_close=False) as f:
-                    # musicgen is shape (batch_size, num_channels, sequence_length)
-                    # https://huggingface.co/docs/transformers/v4.45.1/en/model_doc/musicgen#unconditional-generation
-                    # XXX check shape of other audio pipelines
-                    sf.write(f, audio[0].T, sampling_rate)
-                    response.response_json = {task: {"output": f.name}}
-                    yield f.name
+            case "text-to-audio", {"audio": numpy.ndarray() as audio, "sampling_rate": int(sample_rate)}:
+                path = save_audio(audio, sample_rate, prompt.options.output)
+                response.response_json = {task: {"output": path}}
+                yield path
             case "object-detection", [
                 {
                     "score": float(),
@@ -245,8 +272,14 @@ class Transformers(llm.Model):
                 yield json.dumps(result, indent=4)
             case "image-segmentation", [{"score": float(), "label": str(), "mask": Image.Image()}, *_]:
                 responses = []
-                for item in result:
-                    path = save_image(item["mask"])
+                if prompt.options.output:
+                    out = prompt.options.output
+                    output_template = str(out.with_name(f"{out.stem}-{{:02}}{out.suffix}"))
+                else:
+                    output_template = None
+                for i, item in enumerate(result):
+                    output = output_template.format(i) if output_template else None
+                    path = save_image(item["mask"], output)
                     responses.append({"score": item["score"], "label": item["label"], "output": path})
                 response.response_json = {task: responses}
                 yield "\n".join(
@@ -272,8 +305,8 @@ class Transformers(llm.Model):
             ]:
                 response.response_json = {task: result}
                 yield "\n".join(f"{item['sequence']} (score={item['score']})" for item in result)
-            case "depth-estimation", {"predicted_depth": torch.Tensor(), "depth": Image.Image(depth)}:
-                path = save_image(depth)
+            case "depth-estimation", {"predicted_depth": torch.Tensor(), "depth": Image.Image() as depth}:
+                path = save_image(depth, prompt.options.output)
                 response.response_json = {task: {"output": path}}
                 yield path
             case "document-question-answering", [
@@ -361,6 +394,7 @@ class Transformers(llm.Model):
                     if prompt.options.device is not None
                     else None,
                     framework="pt",
+                    token=self.key,
                 )
             elif (prompt.options.task and self.pipe.task != prompt.options.task) or (
                 prompt.options.model and self.pipe.model.name_or_path != prompt.options.model
@@ -375,4 +409,4 @@ class Transformers(llm.Model):
 
             result = self.pipe(*args, **kwargs)
 
-            yield from self.handle_result(normalized_task, result, response)
+            yield from self.handle_result(normalized_task, result, prompt, response)

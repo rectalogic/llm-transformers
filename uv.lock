@@ -418,6 +418,7 @@ source = { editable = "." }
 dependencies = [
     { name = "av" },
     { name = "llm" },
+    { name = "numpy" },
     { name = "pandas" },
     { name = "pillow" },
     { name = "protobuf" },
@@ -438,6 +439,7 @@ dev = [
 requires-dist = [
     { name = "av" },
     { name = "llm", specifier = ">=0.16" },
+    { name = "numpy", specifier = ">=2.1.1" },
     { name = "pandas" },
     { name = "pillow" },
     { name = "protobuf" },
