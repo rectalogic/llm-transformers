@@ -20,6 +20,8 @@ jobs:
       with:
         enable-cache: true
         cache-dependency-glob: "uv.lock"
+    - name: Install FFmpeg
+      run: sudo apt install -y ffmpeg
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:

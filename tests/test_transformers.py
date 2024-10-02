@@ -89,6 +89,15 @@ def prepare_table():
         yield f.name
 
 
+# Assets from
+# https://huggingface.co/datasets/Narsil/image_dummy/raw/main/lena.png
+# https://huggingface.co/datasets/alfredplpl/video-to-video-dataset/resolve/main/easy/raising.mov
+# http://images.cocodataset.org/val2017/000000039769.jpg
+# https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
+# https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac
+# https://huggingface.co/datasets/s3prl/Nonspeech/resolve/main/animal_sound/n52.wav
+# https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png
+
 testdata = {
     "audio-classification": (
         [
@@ -101,7 +110,7 @@ testdata = {
             "-o",
             "task",
             "audio-classification",
-            "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac",
+            str(pathlib.Path(__file__).parent / "assets" / "1.flac"),
         ],
         startswith_validator("_unknown_ "),
     ),
@@ -116,7 +125,7 @@ testdata = {
             "-o",
             "task",
             "automatic-speech-recognition",
-            "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac",
+            str(pathlib.Path(__file__).parent / "assets" / "1.flac"),
         ],
         equals_validator(
             (
@@ -136,7 +145,7 @@ testdata = {
             "-o",
             "task",
             "depth-estimation",
-            "http://images.cocodataset.org/val2017/000000039769.jpg",
+            str(pathlib.Path(__file__).parent / "assets" / "000000039769.jpg"),
         ],
         image_validator((640, 480)),
     ),
@@ -153,7 +162,7 @@ testdata = {
             "document-question-answering",
             "-o",
             "context",
-            "https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png",
+            str(pathlib.Path(__file__).parent / "assets" / "invoice.png"),
             "What is the invoice number?",
         ],
         equals_validator("us-001\n"),
@@ -195,7 +204,7 @@ testdata = {
             "-o",
             "task",
             "image-classification",
-            "https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png",
+            str(pathlib.Path(__file__).parent / "assets" / "parrots.png"),
         ],
         regex_validator(
             re.compile(
@@ -221,7 +230,7 @@ testdata = {
             "-o",
             "task",
             "image-segmentation",
-            "https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png",
+            str(pathlib.Path(__file__).parent / "assets" / "parrots.png"),
         ],
         segment_validator,
     ),
@@ -236,7 +245,7 @@ testdata = {
             "-o",
             "task",
             "image-to-image",
-            "http://images.cocodataset.org/val2017/000000039769.jpg",
+            str(pathlib.Path(__file__).parent / "assets" / "000000039769.jpg"),
         ],
         image_validator((1296, 976)),
     ),
@@ -251,7 +260,7 @@ testdata = {
             "-o",
             "task",
             "image-to-text",
-            "https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png",
+            str(pathlib.Path(__file__).parent / "assets" / "parrots.png"),
         ],
         equals_validator("two birds are standing next to each other \n"),
     ),
@@ -266,7 +275,7 @@ testdata = {
             "-o",
             "task",
             "object-detection",
-            "https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png",
+            str(pathlib.Path(__file__).parent / "assets" / "parrots.png"),
         ],
         json_validator(
             [
@@ -443,16 +452,16 @@ testdata = {
             "-o",
             "task",
             "video-classification",
-            "https://huggingface.co/datasets/Xuehai/MMWorld/resolve/main/Amazing%20street%20dance%20performance%20from%20Futunity%20UK%20-%20Move%20It%202013/Amazing%20street%20dance%20performance%20from%20Futunity%20UK%20-%20Move%20It%202013.mp4",
+            str(pathlib.Path(__file__).parent / "assets" / "raising.mov"),
         ],
         regex_validator(
             re.compile(
                 (
-                    "dancing ballet \\(0.006\\d+\\)\n"
-                    "spinning poi \\(0.006\\d+\\)\n"
-                    "air drumming \\(0.005\\d+\\)\n"
-                    "singing \\(0.005\\d+\\)\n"
-                    "punching bag \\(0.005\\d+\\)\n"
+                    "stretching arm \\(0.565\\d+\\)\n"
+                    "yoga \\(0.038\\d+\\)\n"
+                    "contact juggling \\(0.026\\d+\\)\n"
+                    "belly dancing \\(0.018\\d+\\)\n"
+                    "exercising arm \\(0.015\\d+\\)\n"
                 ),
                 re.MULTILINE,
             )
@@ -470,13 +479,13 @@ testdata = {
             "visual-question-answering",
             "-o",
             "context",
-            "https://huggingface.co/datasets/Narsil/image_dummy/raw/main/lena.png",
+            str(pathlib.Path(__file__).parent / "assets" / "lena.png"),
             "What is she wearing?",
         ],
         regex_validator(
             re.compile(
                 (
-                    "hat \\(0.948+\\)\n"
+                    "hat \\(0.948\\d+\\)\n"
                     "fedora \\(0.008\\d+\\)\n"
                     "clothes \\(0.003\\d+\\)\n"
                     "sun hat \\(0.002\\d+\\)\n"
@@ -529,7 +538,7 @@ testdata = {
             "-o",
             "context",
             "black and white,photorealist,painting",
-            "https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png",
+            str(pathlib.Path(__file__).parent / "assets" / "parrots.png"),
         ],
         regex_validator(
             re.compile(
@@ -556,7 +565,7 @@ testdata = {
             "-o",
             "context",
             "Sound of a bird,Sound of a dog",
-            "https://huggingface.co/datasets/s3prl/Nonspeech/resolve/main/animal_sound/n52.wav",
+            str(pathlib.Path(__file__).parent / "assets" / "n52.wav"),
         ],
         regex_validator(
             re.compile(
@@ -578,7 +587,7 @@ testdata = {
             "-o",
             "context",
             "cat,couch",
-            "http://images.cocodataset.org/val2017/000000039769.jpg",
+            str(pathlib.Path(__file__).parent / "assets" / "000000039769.jpg"),
         ],
         json_validator(
             [
