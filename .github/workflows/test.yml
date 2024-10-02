@@ -11,13 +11,8 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.12"]
+        marker: ["not llm", "llm0", "llm1", "llm2", "llm3"]
     steps:
-    # Need more disk space for models
-    # https://github.com/easimon/maximize-build-space/blob/master/action.yml
-    - name: Cleanup
-      run: |
-        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-        sudo docker image prune --all --force
     - uses: actions/checkout@v4
     - name: Install uv
       uses: astral-sh/setup-uv@v2
@@ -30,19 +25,8 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: uv sync --all-extras --dev --python ${{ matrix.python-version }} --python-preference only-system
-    - name: Cache models
-      id: cache-models
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/huggingface/hub/
-        save-always: true
-        # Update cache every time since models may be added
-        # https://github.com/actions/cache/blob/main/tips-and-workarounds.md#update-a-cache
-        key: models-${{ runner.os }}-${{ github.run_id }}
-        restore-keys: |
-          models-${{ runner.os }}
     - name: Run tests
-      run: uv run pytest tests
+      run: uv run pytest -m "${{ matrix.marker }}" tests
 
 
 #XXX lint
