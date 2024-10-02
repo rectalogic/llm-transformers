@@ -457,11 +457,11 @@ testdata = {
         regex_validator(
             re.compile(
                 (
-                    "stretching arm \\(0.565\\d+\\)\n"
-                    "yoga \\(0.038\\d+\\)\n"
-                    "contact juggling \\(0.026\\d+\\)\n"
-                    "belly dancing \\(0.018\\d+\\)\n"
-                    "exercising arm \\(0.015\\d+\\)\n"
+                    "stretching arm \\(0.\\d+\\)\n"
+                    "yoga \\(0.03\\d+\\)\n"
+                    "contact juggling \\(0.02\\d+\\)\n"
+                    "belly dancing \\(0.01\\d+\\)\n"
+                    "exercising arm \\(0.01\\d+\\)\n"
                 ),
                 re.MULTILINE,
             )

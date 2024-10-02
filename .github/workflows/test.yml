@@ -21,6 +21,7 @@ jobs:
         enable-cache: true
         cache-dependency-glob: "uv.lock"
     - name: Install FFmpeg
+      if: ${{ matrix.marker != 'not llm' }}
       run: sudo apt install -y ffmpeg
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
@@ -30,6 +31,6 @@ jobs:
       run: uv sync --all-extras --dev --python ${{ matrix.python-version }} --python-preference only-system
     - name: Run tests
       run: uv run pytest -m "${{ matrix.marker }}" tests
-
-
-#XXX lint
+    - name: Lint
+      if: ${{ matrix.marker == 'not llm' }}
+      run: uv run ruff check && uv run ruff format --check

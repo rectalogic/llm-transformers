@@ -25,7 +25,8 @@ from transformers.utils import get_available_devices
 TASK_BLACKLIST = (
     "feature-extraction",
     "image-feature-extraction",
-    "mask-generation",  # Generates list of "masks" (numpy.ndarray(H, W) of dtype('bool')) and "scores" (Tensors)
+    # Generates list of "masks" (numpy.ndarray(H, W) of dtype('bool')) and "scores" (Tensors)
+    "mask-generation",
 )
 
 
@@ -62,11 +63,11 @@ def save_audio(audio: numpy.ndarray, sample_rate: int, output: pathlib.Path | No
         return str(output)
 
 
-def handle_required_kwarg(kwargs: dict, options: llm.Options, name: str, format: str, task: str) -> None:
+def handle_required_kwarg(kwargs: dict, options: llm.Options, name: str, format_: str, task: str) -> None:
     if name not in kwargs:
         kwargs[name] = getattr(options, name, None)
     if kwargs[name] is None:
-        raise llm.ModelError(f"Must specify '-o {name} {format}' option for {task} pipeline task.")
+        raise llm.ModelError(f"Must specify '-o {name} {format_}' option for {task} pipeline task.")
 
 
 @llm.hookimpl
@@ -132,11 +133,17 @@ class Transformers(llm.Model):
             default=None,
         )
         context: str | None = Field(
-            description="Additional context for transformer, often a file path or URL, required by some transformers.",
+            description=(
+                "Additional context for transformer, often a file path or URL, "
+                "required by some transformers."
+            ),
             default=None,
         )
         output: pathlib.Path | None = Field(
-            description="Output file path. Some models generate binary image/audio outputs which will be saved in this file, or a temporary file if not specified.",
+            description=(
+                "Output file path. Some models generate binary image/audio outputs which will be "
+                "saved in this file, or a temporary file if not specified."
+            ),
             default=None,
         )
         device: str | None = Field(
@@ -201,7 +208,7 @@ class Transformers(llm.Model):
                 kwargs["query"] = prompt.prompt
                 handle_required_kwarg(kwargs, prompt.options, "context", "<csvfile>", task)
                 kwargs["table"] = kwargs.pop("context")
-                # Convert CSV to a dict of lists, keys are the header names and values are a list of the column values
+                # Convert CSV to a dict of lists, keys are header names, values are list of column values
                 with open(kwargs["table"]) as f:
                     reader = csv.reader(f)
                     headers = next(reader)  # get the column headers
