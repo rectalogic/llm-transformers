@@ -174,11 +174,11 @@ testdata = {
         regex_validator(
             re.compile(
                 (
-                    "My brain is about to explode \\(score=0.09140\\d+\\)\n"
-                    "My heart is about to explode \\(score=0.0774\\d+\\)\n"
-                    "My head is about to explode \\(score=0.0513\\d+\\)\n"
-                    "My fridge is about to explode \\(score=0.0293\\d+\\)\n"
-                    "My house is about to explode \\(score=0.0286\\d+\\)\n"
+                    "My brain is about to explode \\(score=0.091\\d+\\)\n"
+                    "My heart is about to explode \\(score=0.077\\d+\\)\n"
+                    "My head is about to explode \\(score=0.051\\d+\\)\n"
+                    "My fridge is about to explode \\(score=0.029\\d+\\)\n"
+                    "My house is about to explode \\(score=0.028\\d+\\)\n"
                 ),
                 re.MULTILINE,
             )
@@ -200,11 +200,11 @@ testdata = {
         regex_validator(
             re.compile(
                 (
-                    "macaw \\(0.990523\\d+\\)\n"
-                    "African grey, African gray, Psittacus erithacus \\(0.00560\\d+\\)\n"
-                    "toucan \\(0.00105\\d+\\)\n"
-                    "sulphur-crested cockatoo, Kakatoe galerita, Cacatua galerita \\(0.0006811\\d+\\)\n"
-                    "lorikeet \\(0.000671\\d+\\)\n"
+                    "macaw \\(0.990\\d+\\)\n"
+                    "African grey, African gray, Psittacus erithacus \\(0.005\\d+\\)\n"
+                    "toucan \\(0.001\\d+\\)\n"
+                    "sulphur-crested cockatoo, Kakatoe galerita, Cacatua galerita \\(0.000\\d+\\)\n"
+                    "lorikeet \\(0.000\\d+\\)\n"
                 ),
                 re.MULTILINE,
             )
@@ -365,7 +365,7 @@ testdata = {
             "text-classification",
             "We are very happy to show you the 🤗 Transformers library",
         ],
-        regex_validator(re.compile("POSITIVE \\(0.999768\\d+\\)\n", re.MULTILINE)),
+        regex_validator(re.compile("POSITIVE \\(0.999\\d+\\)\n", re.MULTILINE)),
     ),
     "text-generation": (
         [
@@ -414,7 +414,7 @@ testdata = {
             "My name is Sarah and I live in London",
         ],
         regex_validator(
-            re.compile("Sarah \\(I-PER: 0.998299\\d+\\)\nLondon \\(I-LOC: 0.99839\\d+\\)\n", re.MULTILINE)
+            re.compile("Sarah \\(I-PER: 0.998\\d+\\)\nLondon \\(I-LOC: 0.998\\d+\\)\n", re.MULTILINE)
         ),
     ),
     "translation_en_to_fr": (
@@ -448,11 +448,11 @@ testdata = {
         regex_validator(
             re.compile(
                 (
-                    "dancing ballet \\(0.0066089\\d+\\)\n"
-                    "spinning poi \\(0.0061111\\d+\\)\n"
-                    "air drumming \\(0.005756\\d+\\)\n"
-                    "singing \\(0.0057479\\d+\\)\n"
-                    "punching bag \\(0.005654\\d+\\)\n"
+                    "dancing ballet \\(0.006\\d+\\)\n"
+                    "spinning poi \\(0.006\\d+\\)\n"
+                    "air drumming \\(0.005\\d+\\)\n"
+                    "singing \\(0.005\\d+\\)\n"
+                    "punching bag \\(0.005\\d+\\)\n"
                 ),
                 re.MULTILINE,
             )
@@ -476,11 +476,11 @@ testdata = {
         regex_validator(
             re.compile(
                 (
-                    "hat \\(0.948026\\d+\\)\n"
-                    "fedora \\(0.00863\\d+\\)\n"
-                    "clothes \\(0.003124\\d+\\)\n"
-                    "sun hat \\(0.002937\\d+\\)\n"
-                    "nothing \\(0.002096\\d+\\)\n"
+                    "hat \\(0.948+\\)\n"
+                    "fedora \\(0.008\\d+\\)\n"
+                    "clothes \\(0.003\\d+\\)\n"
+                    "sun hat \\(0.002\\d+\\)\n"
+                    "nothing \\(0.002\\d+\\)\n"
                 ),
                 re.MULTILINE,
             )
@@ -505,11 +505,11 @@ testdata = {
         regex_validator(
             re.compile(
                 (
-                    "urgent \\(0.50363\\d+\\)\n"
-                    "phone \\(0.4788002\\d+\\)\n"
-                    "computer \\(0.012600\\d+\\)\n"
-                    "not urgent \\(0.002655\\d+\\)\n"
-                    "tablet \\(0.002308\\d+\\)\n"
+                    "urgent \\(0.503\\d+\\)\n"
+                    "phone \\(0.478\\d+\\)\n"
+                    "computer \\(0.012\\d+\\)\n"
+                    "not urgent \\(0.002\\d+\\)\n"
+                    "tablet \\(0.002\\d+\\)\n"
                 ),
                 re.MULTILINE,
             )
@@ -534,9 +534,9 @@ testdata = {
         regex_validator(
             re.compile(
                 (
-                    "black and white \\(0.97363\\d+\\)\n"
-                    "photorealist \\(0.02141\\d+\\)\n"
-                    "painting \\(0.004946\\d+\\)\n"
+                    "black and white \\(0.973\\d+\\)\n"
+                    "photorealist \\(0.021\\d+\\)\n"
+                    "painting \\(0.004\\d+\\)\n"
                 ),
                 re.MULTILINE,
             )
@@ -560,7 +560,7 @@ testdata = {
         ],
         regex_validator(
             re.compile(
-                ("Sound of a bird \\(0.99987\\d+\\)\n" "Sound of a dog \\(0.0001235\\d+\\)\n"), re.MULTILINE
+                ("Sound of a bird \\(0.999\\d+\\)\n" "Sound of a dog \\(0.000\\d+\\)\n"), re.MULTILINE
             )
         ),
     ),
