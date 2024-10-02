@@ -619,6 +619,14 @@ marks = {
 }
 
 
+# hash(s) is not idempotent across interpreter runs
+def djb2(s: str) -> int:
+    h = 5381
+    for c in s.encode():
+        h = ((h << 5) + h) + c
+    return h
+
+
 @pytest.mark.parametrize(
     "llm_args,validator",
     [
@@ -629,7 +637,7 @@ marks = {
             # actions runners (due to disk space issues on the runners)
             marks=[
                 pytest.mark.llm,
-                marks[hash(key) % len(marks)],
+                marks[djb2(key) % len(marks)],
             ],
         )
         for key, values in testdata.items()
