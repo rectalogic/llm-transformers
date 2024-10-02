@@ -20,9 +20,9 @@ jobs:
       with:
         enable-cache: true
         cache-dependency-glob: "uv.lock"
-    - name: Install FFmpeg
+    - name: Install Ubuntu packages
       if: ${{ matrix.marker != 'not llm' }}
-      run: sudo apt install -y ffmpeg
+      run: sudo apt install -y ffmpeg tesseract-ocr
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
