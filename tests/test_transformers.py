@@ -15,36 +15,52 @@ from PIL import Image
 
 
 def image_validator(*sizes: tuple[int, int]):
-    def validator(out: str) -> bool:
+    def validate(out: str):
         paths = out.splitlines()
         result = all(Image.open(path).size == size for size, path in zip(sizes, paths, strict=True))
         for path in paths:
             pathlib.Path(path).unlink(missing_ok=True)
         assert result
 
-    return validator
+    return validate
 
 
 def audio_validator(sample_rate: int):
-    def validator(out: str) -> bool:
+    def validate(out: str):
         path = out.strip()
         actual_sample_rate = sf.read(path)[1]
         pathlib.Path(path).unlink(missing_ok=True)
         assert actual_sample_rate == sample_rate
 
-    return validator
+    return validate
 
 
-def equals_validator(a, b):
-    assert a == b
+def equals_validator(value):
+    def validate(out):
+        assert value == out
+
+    return validate
 
 
-def regex_validator(value, regex):
-    assert re.match(regex, value, re.MULTILINE)
+def json_validator(value: dict):
+    def validate(out):
+        assert value == json.loads(out)
+
+    return validate
 
 
-def startswith_validator(out: str, start: str):
-    assert out.startswith(start)
+def regex_validator(regex: re.Pattern):
+    def validate(out: str):
+        assert regex.match(out)
+
+    return validate
+
+
+def startswith_validator(start: str):
+    def validate(out: str):
+        assert out.startswith(start)
+
+    return validate
 
 
 def segment_validator(out: str) -> bool:
@@ -87,7 +103,7 @@ testdata = {
             "audio-classification",
             "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac",
         ],
-        lambda out: startswith_validator(out, "_unknown_ "),
+        startswith_validator("_unknown_ "),
     ),
     "automatic-speech-recognition": (
         [
@@ -102,8 +118,7 @@ testdata = {
             "automatic-speech-recognition",
             "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac",
         ],
-        lambda out: equals_validator(
-            out,
+        equals_validator(
             (
                 "HE HOPED THERE WOULD BE STEW FOR DINNER TURNIPS AND CARROTS AND BRUISED POTATOES AND FAT "
                 "MUTTON PIECES TO BE LADLED OUT IN THICK PEPPERED FLOWER FAT AND SAUCE\n"
@@ -141,7 +156,7 @@ testdata = {
             "https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png",
             "What is the invoice number?",
         ],
-        lambda out: equals_validator(out, "us-001\n"),
+        equals_validator("us-001\n"),
     ),
     "fill-mask": (
         [
@@ -156,15 +171,17 @@ testdata = {
             "fill-mask",
             "My <mask> is about to explode",
         ],
-        lambda out: equals_validator(
-            out,
-            (
-                "My brain is about to explode (score=0.09140042215585709)\n"
-                "My heart is about to explode (score=0.07742168009281158)\n"
-                "My head is about to explode (score=0.05137857422232628)\n"
-                "My fridge is about to explode (score=0.029346412047743797)\n"
-                "My house is about to explode (score=0.02866862528026104)\n"
-            ),
+        regex_validator(
+            re.compile(
+                (
+                    "My brain is about to explode \\(score=0.09140\\d+\\)\n"
+                    "My heart is about to explode \\(score=0.0774\\d+\\)\n"
+                    "My head is about to explode \\(score=0.0513\\d+\\)\n"
+                    "My fridge is about to explode \\(score=0.0293\\d+\\)\n"
+                    "My house is about to explode \\(score=0.0286\\d+\\)\n"
+                ),
+                re.MULTILINE,
+            )
         ),
     ),
     "image-classification": (
@@ -180,15 +197,17 @@ testdata = {
             "image-classification",
             "https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png",
         ],
-        lambda out: equals_validator(
-            out,
-            (
-                "macaw (0.9905233979225159)\n"
-                "African grey, African gray, Psittacus erithacus (0.005603480152785778)\n"
-                "toucan (0.001056905253790319)\n"
-                "sulphur-crested cockatoo, Kakatoe galerita, Cacatua galerita (0.0006811501225456595)\n"
-                "lorikeet (0.0006714339251630008)\n"
-            ),
+        regex_validator(
+            re.compile(
+                (
+                    "macaw \\(0.990523\\d+\\)\n"
+                    "African grey, African gray, Psittacus erithacus \\(0.00560\\d+\\)\n"
+                    "toucan \\(0.00105\\d+\\)\n"
+                    "sulphur-crested cockatoo, Kakatoe galerita, Cacatua galerita \\(0.0006811\\d+\\)\n"
+                    "lorikeet \\(0.000671\\d+\\)\n"
+                ),
+                re.MULTILINE,
+            )
         ),
     ),
     "image-segmentation": (
@@ -234,7 +253,7 @@ testdata = {
             "image-to-text",
             "https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png",
         ],
-        lambda out: equals_validator(out, "two birds are standing next to each other \n"),
+        equals_validator("two birds are standing next to each other \n"),
     ),
     "object-detection": (
         [
@@ -249,16 +268,15 @@ testdata = {
             "object-detection",
             "https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png",
         ],
-        lambda out: equals_validator(
-            json.loads(out),
+        json_validator(
             [
                 {
-                    "score": 0.9966394901275635,
+                    "score": pytest.approx(0.9966, abs=0.00009),
                     "label": "bird",
                     "box": {"xmin": 69, "ymin": 171, "xmax": 396, "ymax": 507},
                 },
                 {
-                    "score": 0.999381422996521,
+                    "score": pytest.approx(0.9993, abs=0.00009),
                     "label": "bird",
                     "box": {"xmin": 398, "ymin": 105, "xmax": 767, "ymax": 507},
                 },
@@ -281,7 +299,7 @@ testdata = {
             "My name is Wolfgang and I live in Berlin",
             "Where do I live?",
         ],
-        lambda out: equals_validator(out, "Berlin\n"),
+        equals_validator("Berlin\n"),
     ),
     "summarization": (
         [
@@ -299,7 +317,7 @@ testdata = {
             '{"min_length": 2, "max_length": 7}',
             "An apple a day, keeps the doctor away",
         ],
-        lambda out: equals_validator(out, " An apple a day\n"),
+        equals_validator(" An apple a day\n"),
     ),
     "table-question-answering": (
         [
@@ -317,7 +335,7 @@ testdata = {
             prepare_table,
             "How many stars does the transformers repository have?",
         ],
-        lambda out: equals_validator(out, "AVERAGE > 36542\n"),
+        equals_validator("AVERAGE > 36542\n"),
     ),
     "text2text-generation": (
         [
@@ -332,7 +350,7 @@ testdata = {
             "text2text-generation",
             "question: What is 42 ? context: 42 is the answer to life, the universe and everything",
         ],
-        lambda out: equals_validator(out, "the answer to life, the universe and everything\n"),
+        equals_validator("the answer to life, the universe and everything\n"),
     ),
     "text-classification": (
         [
@@ -347,7 +365,7 @@ testdata = {
             "text-classification",
             "We are very happy to show you the 🤗 Transformers library",
         ],
-        lambda out: equals_validator(out, "POSITIVE (0.9997681975364685)\n"),
+        regex_validator(re.compile("POSITIVE \\(0.999768\\d+\\)\n", re.MULTILINE)),
     ),
     "text-generation": (
         [
@@ -362,7 +380,7 @@ testdata = {
             "text-generation",
             "I am going to elect",
         ],
-        lambda out: startswith_validator(out, "I am going to elect"),
+        startswith_validator("I am going to elect"),
     ),
     "text-to-audio": (
         [
@@ -395,8 +413,8 @@ testdata = {
             "token-classification",
             "My name is Sarah and I live in London",
         ],
-        lambda out: equals_validator(
-            out, "Sarah (I-PER: 0.9982994198799133)\nLondon (I-LOC: 0.998397171497345)\n"
+        regex_validator(
+            re.compile("Sarah \\(I-PER: 0.998299\\d+\\)\nLondon \\(I-LOC: 0.99839\\d+\\)\n", re.MULTILINE)
         ),
     ),
     "translation_en_to_fr": (
@@ -412,7 +430,7 @@ testdata = {
             "translation_en_to_fr",
             "How old are you?",
         ],
-        lambda out: equals_validator(out, " quel âge êtes-vous?\n"),
+        equals_validator(" quel âge êtes-vous?\n"),
     ),
     "video-classification": (
         [
@@ -427,15 +445,17 @@ testdata = {
             "video-classification",
             "https://huggingface.co/datasets/Xuehai/MMWorld/resolve/main/Amazing%20street%20dance%20performance%20from%20Futunity%20UK%20-%20Move%20It%202013/Amazing%20street%20dance%20performance%20from%20Futunity%20UK%20-%20Move%20It%202013.mp4",
         ],
-        lambda out: equals_validator(
-            out,
-            (
-                "dancing ballet (0.006608937866985798)\n"
-                "spinning poi (0.006111182738095522)\n"
-                "air drumming (0.005756791681051254)\n"
-                "singing (0.005747966933995485)\n"
-                "punching bag (0.00565463537350297)\n"
-            ),
+        regex_validator(
+            re.compile(
+                (
+                    "dancing ballet \\(0.0066089\\d+\\)\n"
+                    "spinning poi \\(0.0061111\\d+\\)\n"
+                    "air drumming \\(0.005756\\d+\\)\n"
+                    "singing \\(0.0057479\\d+\\)\n"
+                    "punching bag \\(0.005654\\d+\\)\n"
+                ),
+                re.MULTILINE,
+            )
         ),
     ),
     "visual-question-answering": (
@@ -453,15 +473,17 @@ testdata = {
             "https://huggingface.co/datasets/Narsil/image_dummy/raw/main/lena.png",
             "What is she wearing?",
         ],
-        lambda out: regex_validator(
-            out,
-            (
-                "hat \\(0.948026\\d+\\)\n"
-                "fedora \\(0.00863\\d+\\)\n"
-                "clothes \\(0.003124\\d+\\)\n"
-                "sun hat \\(0.002937\\d+\\)\n"
-                "nothing \\(0.002096\\d+\\)\n"
-            ),
+        regex_validator(
+            re.compile(
+                (
+                    "hat \\(0.948026\\d+\\)\n"
+                    "fedora \\(0.00863\\d+\\)\n"
+                    "clothes \\(0.003124\\d+\\)\n"
+                    "sun hat \\(0.002937\\d+\\)\n"
+                    "nothing \\(0.002096\\d+\\)\n"
+                ),
+                re.MULTILINE,
+            )
         ),
     ),
     "zero-shot-classification": (
@@ -480,15 +502,17 @@ testdata = {
             "urgent,not urgent,phone,tablet,computer",
             "I have a problem with my iphone that needs to be resolved asap!!",
         ],
-        lambda out: equals_validator(
-            out,
-            (
-                "urgent (0.5036348700523376)\n"
-                "phone (0.4788002371788025)\n"
-                "computer (0.012600351125001907)\n"
-                "not urgent (0.0026557915844023228)\n"
-                "tablet (0.0023087668232619762)\n"
-            ),
+        regex_validator(
+            re.compile(
+                (
+                    "urgent \\(0.50363\\d+\\)\n"
+                    "phone \\(0.4788002\\d+\\)\n"
+                    "computer \\(0.012600\\d+\\)\n"
+                    "not urgent \\(0.002655\\d+\\)\n"
+                    "tablet \\(0.002308\\d+\\)\n"
+                ),
+                re.MULTILINE,
+            )
         ),
     ),
     "zero-shot-image-classification": (
@@ -507,13 +531,15 @@ testdata = {
             "black and white,photorealist,painting",
             "https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png",
         ],
-        lambda out: equals_validator(
-            out,
-            (
-                "black and white (0.9736384749412537)\n"
-                "photorealist (0.02141517587006092)\n"
-                "painting (0.004946451168507338)\n"
-            ),
+        regex_validator(
+            re.compile(
+                (
+                    "black and white \\(0.97363\\d+7\\)\n"
+                    "photorealist \\(0.02141\\d+\\)\n"
+                    "painting \\(0.004946\\d+\\)\n"
+                ),
+                re.MULTILINE,
+            )
         ),
     ),
     "zero-shot-audio-classification": (
@@ -532,9 +558,10 @@ testdata = {
             "Sound of a bird,Sound of a dog",
             "https://huggingface.co/datasets/s3prl/Nonspeech/resolve/main/animal_sound/n52.wav",
         ],
-        lambda out: equals_validator(
-            out,
-            ("Sound of a bird (0.9998763799667358)\n" "Sound of a dog (0.00012355657236184925)\n"),
+        regex_validator(
+            re.compile(
+                ("Sound of a bird \\(0.99987\\d+\\)\n" "Sound of a dog \\(0.0001235\\d+\\)\n"), re.MULTILINE
+            )
         ),
     ),
     "zero-shot-object-detection": (
@@ -553,21 +580,20 @@ testdata = {
             "cat,couch",
             "http://images.cocodataset.org/val2017/000000039769.jpg",
         ],
-        lambda out: equals_validator(
-            json.loads(out),
+        json_validator(
             [
                 {
-                    "score": 0.2868139445781708,
+                    "score": pytest.approx(0.2868, abs=0.00009),
                     "label": "cat",
                     "box": {"xmin": 324, "ymin": 20, "xmax": 640, "ymax": 373},
                 },
                 {
-                    "score": 0.2537268102169037,
+                    "score": pytest.approx(0.2537, abs=0.00009),
                     "label": "cat",
                     "box": {"xmin": 1, "ymin": 55, "xmax": 315, "ymax": 472},
                 },
                 {
-                    "score": 0.12082991003990173,
+                    "score": pytest.approx(0.1208, abs=0.00009),
                     "label": "couch",
                     "box": {"xmin": 4, "ymin": 0, "xmax": 642, "ymax": 476},
                 },
@@ -576,10 +602,33 @@ testdata = {
     ),
 }
 
+marks = {
+    0: pytest.mark.llm0,
+    1: pytest.mark.llm1,
+    2: pytest.mark.llm2,
+    3: pytest.mark.llm3,
+}
 
-@pytest.mark.parametrize("llm_args,validator", testdata.values(), ids=testdata.keys())
+
+@pytest.mark.parametrize(
+    "llm_args,validator",
+    [
+        pytest.param(
+            *values,
+            id=key,
+            # We bucket tests into different mark groups so they can be run on separate GitHub
+            # actions runners (due to disk space issues on the runners)
+            marks=[
+                pytest.mark.llm,
+                marks[hash(key) % len(marks)],
+            ],
+        )
+        for key, values in testdata.items()
+    ],
+)
 def test_transformer(monkeypatch, capsys, llm_args, validator):
     with ExitStack() as stack:
+        # Replace any callable generator args with their generated result
         prepared_args = [stack.enter_context(arg()) if callable(arg) else arg for arg in llm_args]
         monkeypatch.setattr(sys, "argv", prepared_args)
         monkeypatch.setattr(sys.stdin, "isatty", lambda: True)  # prevent llm from trying to read from stdin

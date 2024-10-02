@@ -25,6 +25,12 @@ dependencies = [
     "numpy>=2.1.1",
 ]
 
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.3",
+    "ruff>=0.6.8",
+]
+
 [project.urls]
 Homepage = "https://github.com/rectalogic/llm-transformers"
 Changelog = "https://github.com/rectalogic/llm-transformers/releases"
@@ -68,8 +74,11 @@ select = [
     "UP",
 ]
 
-[tool.uv]
-dev-dependencies = [
-    "pytest>=8.3.3",
-    "ruff>=0.6.8",
+[tool.pytest.ini_options]
+markers = [
+    "llm: marks tests that run an LLM",
+    "llm0: marks a subset of llm tests into their own group",
+    "llm1: marks a subset of llm tests into their own group",
+    "llm2: marks a subset of llm tests into their own group",
+    "llm3: marks a subset of llm tests into their own group",
 ]
