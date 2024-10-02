@@ -30,21 +30,21 @@ def audio_validator(sample_rate: int):
         path = out.strip()
         actual_sample_rate = sf.read(path)[1]
         pathlib.Path(path).unlink(missing_ok=True)
-        assert actual_sample_rate == sample_rate
+        assert sample_rate == actual_sample_rate
 
     return validate
 
 
 def equals_validator(value):
     def validate(out):
-        assert value == out
+        assert out == value
 
     return validate
 
 
 def json_validator(value: dict):
     def validate(out):
-        assert value == json.loads(out)
+        assert json.loads(out) == value
 
     return validate
 

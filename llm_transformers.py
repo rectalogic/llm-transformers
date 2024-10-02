@@ -22,6 +22,8 @@ from transformers import pipeline
 from transformers.pipelines import Pipeline, check_task, get_supported_tasks
 from transformers.utils import get_available_devices
 
+log = logging.getLogger(__name__)
+
 TASK_BLACKLIST = (
     "feature-extraction",
     "image-feature-extraction",
@@ -50,7 +52,6 @@ def save_audio(audio: numpy.ndarray, sample_rate: int, output: pathlib.Path | No
     def save(f: ta.BinaryIO) -> None:
         # musicgen is shape (batch_size, num_channels, sequence_length)
         # https://huggingface.co/docs/transformers/v4.45.1/en/model_doc/musicgen#unconditional-generation
-        # XXX check shape of other audio pipelines
         sf.write(f, audio[0].T, sample_rate)
 
     if output is None:
@@ -380,9 +381,8 @@ class Transformers(llm.Model):
             }:
                 response.response_json = {task: result}
                 yield "\n".join(f"{label} ({score})" for label, score in zip(labels, scores, strict=True))
-            case _, _:
-                breakpoint()  # XXX log an error and try json
-                print("DEFAULT CASE")  # XXX
+            case str(task), _:
+                log.error("Unhandled pipeline task '%s'. Attempting to show results as JSON.", task)
                 yield json.dumps(result, indent=4)
 
     def execute(
