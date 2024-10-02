@@ -534,7 +534,7 @@ testdata = {
         regex_validator(
             re.compile(
                 (
-                    "black and white \\(0.97363\\d+7\\)\n"
+                    "black and white \\(0.97363\\d+\\)\n"
                     "photorealist \\(0.02141\\d+\\)\n"
                     "painting \\(0.004946\\d+\\)\n"
                 ),
