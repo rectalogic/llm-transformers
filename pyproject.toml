@@ -1,7 +1,10 @@
+# Copyright (C) 2024 Andrew Wason
+# SPDX-License-Identifier: Apache-2.0
 [project]
 name = "llm-transformers"
-version = "0.1"
-description = "Plugin for llm adding support for Hugging Face Transformers"
+version = "0.1.0"
+requires-python = ">= 3.12"
+description = "Plugin for llm adding support for 🤗 Hugging Face Transformers"
 readme = "README.md"
 authors = [{name = "Andrew Wason"}]
 license = {text = "Apache-2.0"}
@@ -9,7 +12,23 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License"
 ]
 dependencies = [
-    "llm"
+    "llm~=0.16",
+    "transformers~=4.45.1",
+    "torch~=2.4.1",
+    "soundfile~=0.12.1",
+    "pillow~=10.4.0",
+    "pytesseract~=0.3.13",
+    "timm~=1.0.9",
+    "protobuf~=5.28.2",
+    "pandas~=2.2.3",
+    "av~=13.0.0",
+    "numpy~=2.1.1",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest~=8.3.3",
+    "ruff~=0.6.8",
 ]
 
 [project.urls]
@@ -21,5 +40,48 @@ CI = "https://github.com/rectalogic/llm-transformers/actions"
 [project.entry-points.llm]
 transformers = "llm_transformers"
 
-[project.optional-dependencies]
-test = ["pytest"]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 108
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    # flake8-2020
+    "YTT",
+    # flake8-bandit
+    "S",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    # isort
+    "I",
+    # flake8-no-pep420
+    "INP",
+    # pyupgrade
+    "UP",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "INP001"]
+
+[tool.pytest.ini_options]
+markers = [
+    "llm: marks tests that run an LLM",
+    "llm0: marks a subset of llm tests into their own group",
+    "llm1: marks a subset of llm tests into their own group",
+    "llm2: marks a subset of llm tests into their own group",
+    "llm3: marks a subset of llm tests into their own group",
+]

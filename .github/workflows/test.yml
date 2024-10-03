@@ -1,6 +1,6 @@
 name: Test
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_call]
 
 permissions:
   contents: read
@@ -9,19 +9,28 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.12"]
+        marker: ["not llm", "llm0", "llm1", "llm2", "llm3"]
     steps:
     - uses: actions/checkout@v4
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+    - name: Install Ubuntu packages
+      if: ${{ matrix.marker != 'not llm' }}
+      run: sudo apt install -y ffmpeg tesseract-ocr
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-        cache: pip
-        cache-dependency-path: pyproject.toml
     - name: Install dependencies
-      run: |
-        pip install -e '.[test]'
+      run: uv sync --all-extras --dev --python ${{ matrix.python-version }} --python-preference only-system
     - name: Run tests
-      run: |
-        python -m pytest
+      run: uv run pytest -m "${{ matrix.marker }}" tests
+    - name: Lint
+      if: ${{ matrix.marker == 'not llm' }}
+      run: uv run ruff check && uv run ruff format --check
