@@ -84,7 +84,6 @@ The `depth-estimation` task accepts an image url or path as input and generates 
 $ llm -m transformers -o task depth-estimation http://images.cocodataset.org/val2017/000000039769.jpg
 /var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmpjvp9uo7x.png
 ```
-XXX embed image here?
 
 ### [document-question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.DocumentQuestionAnsweringPipeline)
 
@@ -188,7 +187,7 @@ Berlin
 
 ### [summarization](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.SummarizationPipeline)
 
-Specify additional pipeline keyword args with the `kwargs` model option, a JSON text document:
+Specify additional pipeline keyword args with the `kwargs` model option:
 ```sh-session
 $ llm -m transformers -o task summarization "An apple a day, keeps the doctor away"
  An apple a day, keeps the doctor away from your doctor away . An apple every day is an apple that keeps you from going to the doctor . The apple is the best way to keep your doctor from getting a doctor's orders, according to the author of The Daily Mail
