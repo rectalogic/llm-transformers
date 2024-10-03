@@ -53,6 +53,11 @@ See the documentation for a specific pipeline for information on additional keyw
 
 ## Transformer Pipeline Tasks
 
+You can list available tasks with:
+```sh-session
+$ llm transformers list-tasks
+```
+
 ### [audio-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.AudioClassificationPipeline)
 
 The `audio-classification` task takes an audio URL or path, for example:

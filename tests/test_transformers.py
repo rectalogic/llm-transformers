@@ -658,3 +658,12 @@ def test_transformer(monkeypatch, capsys, llm_args, validator):
 def test_plugin_is_installed():
     names = [mod.__name__ for mod in pm.get_plugins()]
     assert "llm_transformers" in names
+
+
+def test_list_tasks(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["llm", "transformers", "list-tasks"])
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)  # prevent llm from trying to read from stdin
+    monkeypatch.setattr(sys, "exit", lambda x=None: None)
+    cli()
+    captured = capsys.readouterr()
+    assert "text-generation" in captured.out
