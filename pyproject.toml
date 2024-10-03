@@ -14,14 +14,14 @@ classifiers = [
 dependencies = [
     "llm>=0.16",
     "transformers>=4.45.1",
-    "torch",
-    "soundfile",
-    "pillow",
-    "pytesseract",
-    "timm",
-    "protobuf",
-    "pandas",
-    "av",
+    "torch>=2.4.1",
+    "soundfile>=0.12.1",
+    "pillow>=10.4.0",
+    "pytesseract>=0.3.13",
+    "timm>=1.0.9",
+    "protobuf>=5.28.2",
+    "pandas>=2.2.3",
+    "av>=13.0.0",
     "numpy>=2.1.1",
 ]
 

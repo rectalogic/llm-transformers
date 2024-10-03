@@ -5,7 +5,7 @@
 [![Tests](https://github.com/rectalogic/llm-transformers/actions/workflows/test.yml/badge.svg)](https://github.com/rectalogic/llm-transformers/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/rectalogic/llm-transformers/blob/main/LICENSE)
 
-Plugin for llm adding support for [🤗 Hugging Face Transformers](https://huggingface.co/docs/transformers/index)
+Plugin for [llm](https://llm.datasette.io/) adding support for 🤗 [Hugging Face Transformers](https://huggingface.co/docs/transformers/index) [pipeline](https://huggingface.co/docs/transformers/pipeline_tutorial) tasks.
 
 ## Installation
 
@@ -13,12 +13,25 @@ Install this plugin in the same environment as [LLM](https://llm.datasette.io/).
 ```bash
 llm install llm-transformers
 ```
+Some pipelines that accept audio/video inputs require the [ffmpeg](https://ffmpeg.org/) executable to be installed.
+The [`document-question-answering`](#document-question-answering) pipeline uses `pytesseract` which requires the [tesseract](https://tesseract-ocr.github.io/) executable.
+
 ## Usage
 
-XXX document `-o verbose True`
-XXX HF_TOKEN/key usage
+This plugin exposes 🤗 Hugging Face transformers pipelines, the "model" name is `transformers` and the pipeline task and/or Hugging Face model are specified as model options, e.g.:
+```sh-session
+$ llm -m transformers -o task text-generation "A dog has"
+$ llm -m transformers -o model facebook/musicgen-small "techno music"
+```
+If only `-o task <task>` is specified, the default model for that task will be used.
+If only `-m model <model>` is specified, the task will be inferred from the model.
+If both are specified, then the model must be compatible with the task.
 
-Most models are freely accessible, some of them require accepting a license agreement and using a Hugging Face [API token](https://huggingface.co/settings/tokens) that has access to the model.
+Transformers logging is verbose and disabled by default.
+Specify the `-o verbose True` model option to enable it.
+
+Most 🤗 Hugging Face models are freely accessible, some of them require accepting a license agreement
+and using a Hugging Face [API token](https://huggingface.co/settings/tokens) that has access to the model.
 You can use `llm keys set huggingface`, or set the `HF_TOKEN` env var, or use the `--key` option to `llm`.
 
 ```sh-session
@@ -28,6 +41,15 @@ Make sure to have access to it at https://huggingface.co/meta-llama/Llama-3.2-1B
 $ llm --key hf_******************** -m transformers -o model meta-llama/Llama-3.2-1B "A dog has"
 A dog has been named as the killer of a woman who was found dead in her home.
 ```
+
+Some pipelines generate binary (audio, image, video) output, these are written to a temporary file
+and the path to the file is returned.
+A specific file can be specified with the `-o output <path.suffx>` model option.
+The suffix specifies the file type (e.g. `.png` vs `.jpg` etc).
+
+Pipelines can be tuned by passing additional keyword arguments to the pipeline call.
+These are specified as a JSON string in the `-o kwargs '<json>'` model option.
+See the documentation for a specific pipeline for information on additional keyword arguments.
 
 ## Transformer Pipeline Tasks
 
@@ -62,7 +84,6 @@ XXX embed image here?
 ### [document-question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.DocumentQuestionAnsweringPipeline)
 
 The `document-question-answering` task requires a `context` option which is a file or URL to an image:
-
 ```sh-session
 $ llm -m transformers -o task document-question-answering -o context https://huggingface.co/spaces/impira/docquery/resolve/2359223c1837a7587402bda0f2643382a6eefeab/invoice.png "What is the invoice number?"
 us-001
@@ -74,7 +95,6 @@ Not supported.
 ### [fill-mask](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.FillMaskPipeline)
 
 `fill-mask` requires a placeholder in the prompt, thiis is typically `<mask>` but is different for different models:
-
 ```sh-session
 $ llm -m transformers -o task fill-mask "My <mask> is about to explode"
 My brain is about to explode (score=0.09140042215585709)
@@ -174,7 +194,6 @@ $ llm -m transformers -o task summarization -o kwargs '{"min_length": 2, "max_le
 ### [table-question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TableQuestionAnsweringPipeline)
 
 `table-question-answering` takes a required `context` option - a path to a CSV file.
-
 ```sh-session
 $ cat <<EOF > /tmp/t.csv
 > Repository,Stars,Contributors,Programming language
@@ -205,7 +224,6 @@ POSITIVE (0.9997681975364685)
 ### [text-generation](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TextGenerationPipeline)
 
 Some `text-generation` models can be chatted with.
-
 ```sh-session
 $ llm -m transformers -o task text-generation "I am going to elect"
 I am going to elect the president of Mexico and that president should vote for our president," he said. "That's not very popular. That's not the American way. I would not want voters to accept the fact that that guy's running a
@@ -224,12 +242,14 @@ Your question was: "What is the capital of France?"
 
 ### [text-to-audio](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TextToAudioPipeline)
 
-`text-to-audio` generates audio, the response is the path to the audio file.
+`text-to-audio` generates audio, the response is the path to the generated audio file.
 ```sh-session
 $ llm -m transformers -o kwargs '{"generate_kwargs": {"max_new_tokens": 100}}' -o model facebook/musicgen-small "techno music"
 /var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmpoueh05y6.wav
 $ llm -m transformers -o task text-to-audio "Hello world"
 /var/folders/b1/1j9kkk053txc5krqbh0lj5t00000gn/T/tmpmpwhkd8p.wav
+$ llm -m transformers -o task text-to-audio -o model facebook/mms-tts-eng -o output /tmp/speech.flac "Hello world"
+/tmp/speech.flac
 ```
 
 ### [token-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TokenClassificationPipeline)
@@ -243,7 +263,6 @@ London (I-LOC: 0.998397171497345)
 ### [translation_xx_to_yy](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TranslationPipeline)
 
 Substitute the from and to language codes into the task name, e.g. from `en` to `fr` would use task `translation_en_to_fr`:
-
 ```sh-session
 $ llm -m transformers -o task translation_en_to_fr "How old are you?"
  quel âge êtes-vous?
@@ -252,7 +271,6 @@ $ llm -m transformers -o task translation_en_to_fr "How old are you?"
 ### [video-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.VideoClassificationPipeline)
 
 `video-classification` task expects a video path or URL as the prompt:
-
 ```sh-session
 $ llm -m transformers -o task video-classification https://huggingface.co/datasets/Xuehai/MMWorld/resolve/main/Amazing%20street%20dance%20performance%20from%20Futunity%20UK%20-%20Move%20It%202013/Amazing%20street%20dance%20performance%20from%20Futunity%20UK%20-%20Move%20It%202013.mp4
 dancing ballet (0.006608937866985798)
@@ -265,7 +283,6 @@ punching bag (0.00565463537350297)
 ### [visual-question-answering](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.VisualQuestionAnsweringPipeline)
 
 `visual-question-answering` task requires an `context` option - a file or URL to an image:
-
 ```sh-session
 $ llm -m transformers -o task visual-question-answering -o context https://huggingface.co/datasets/Narsil/image_dummy/raw/main/lena.png "What is she wearing?"
 hat (0.9480269551277161)
@@ -278,7 +295,6 @@ nothing (0.0020962499547749758)
 ### [zero-shot-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotClassificationPipeline)
 
 `zero-shot-classification` requires a comma separated list of labels to be specified in the `context` model option:
-
 ```sh-session
 $ llm -m transformers -o task zero-shot-classification -o context "urgent,not urgent,phone,tablet,computer" "I have a problem with my iphone that needs to be resolved asap!!"
 urgent (0.5036348700523376)
@@ -291,7 +307,6 @@ tablet (0.0023087668232619762)
 ### [zero-shot-image-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotImageClassificationPipeline)
 
 `zero-shot-image-classification` requires a comma separated list of labels to be specified in the `context` model option. The prompt is a path or URL to an image:
-
 ```sh-session
 $ llm -m transformers -o task zero-shot-image-classification -o context "black and white,photorealist,painting" https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png
 black and white (0.9736384749412537)
@@ -301,8 +316,8 @@ painting (0.004946451168507338)
 
 ### [zero-shot-audio-classification](https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ZeroShotAudioClassificationPipeline)
 
-`zero-shot-audio-classification` requires a comma separated list of labels to be specified in the `context` model option. The prompt is a path or URL to an audio:
-
+`zero-shot-audio-classification` requires a comma separated list of labels to be specified in the `context` model option.
+The prompt is a path or URL to an audio:
 ```sh-session
 $ llm -m transformers -o task zero-shot-audio-classification -o context "Sound of a bird,Sound of a dog" https://huggingface.co/datasets/s3prl/Nonspeech/resolve/main/animal_sound/n52.wav
 Sound of a bird (0.9998763799667358)
@@ -313,7 +328,6 @@ Sound of a dog (0.00012355657236184925)
 
 `zero-shot-object-detection` requires a comma separated list of labels to be specified in the `context` model option. The prompt is a path or URL to an image.
 The response is JSON and includes a bounding box for each label:
-
 ```sh-session
 $ llm -m transformers -o task zero-shot-object-detection -o context "cat,couch" http://images.cocodataset.org/val2017/000000039769.jpg
 [
@@ -350,20 +364,13 @@ $ llm -m transformers -o task zero-shot-object-detection -o context "cat,couch" 
 ]
 ```
 
-
 ## Development
 
-To set up this plugin locally, first checkout the code. Then create a new virtual environment:
-```bash
-cd llm-transformers
-python -m venv venv
-source venv/bin/activate
-```
-Now install the dependencies and test dependencies:
-```bash
-llm install -e '.[test]'
-```
-To run the tests:
-```bash
-python -m pytest
+To set up this plugin locally, first checkout the code and install [`uv`](https://docs.astral.sh/uv/).
+`uv sync` to create a `venv` and install, then run tests:
+```sh-session
+$ uv sync --dev
+$ uv run pytest
+$ uv run ruff check
+$ uv run ruff format --check
 ```
